@@ -165,10 +165,23 @@ Saves a context item to the active session.
 Retrieves context items with optional filtering.
 
 **context_status**
-```javascript
-{}
-```
+
 Returns session statistics including item count, size, checkpoint count, and compaction recommendations.
+
+Returns:
+```javascript
+{
+  current_session_id: "sess_...",
+  session_name: "Implementing Auth",
+  channel: "feature-auth",
+  item_count: 47,
+  total_size: 12456,
+  checkpoint_count: 3,
+  last_updated: 1730577600000,  // Unix timestamp in milliseconds
+  should_compact: true,
+  compaction_reason: "High item count (47 items, recommended: prepare at 40+ items)"
+}
+```
 
 **context_session_rename**
 ```javascript
@@ -207,22 +220,68 @@ Creates a named checkpoint of the current session state. If `include_git` is tru
 Restores all context items from a checkpoint into the current session.
 
 **context_list_checkpoints**
-```javascript
-{}
-```
+
 Lists all checkpoints for the current session with metadata.
 
-**context_prepare_compaction**
+Returns:
 ```javascript
-{}
+{
+  checkpoints: [
+    {
+      id: "ckpt_...",
+      name: "before-refactor",
+      session_id: "sess_...",
+      item_count: 23,
+      total_size: 4567,
+      created_at: 1730577600000  // Unix timestamp in milliseconds
+    }
+  ],
+  count: 1
+}
 ```
-Creates an automatic checkpoint and analyzes the session to generate a restoration summary. Returns:
-- Checkpoint metadata
-- Session statistics
-- High-priority items (top 5)
-- Pending tasks
-- Key decisions
-- Restoration instructions
+
+**context_prepare_compaction**
+
+Creates an automatic checkpoint and analyzes the session to generate a restoration summary.
+
+Returns:
+```javascript
+{
+  checkpoint: {
+    id: "ckpt_...",
+    name: "pre-compact-2025-11-02T15-30-00",
+    session_id: "sess_...",
+    created_at: 1730577600000  // Unix timestamp in milliseconds
+  },
+  stats: {
+    total_items_saved: 47,
+    critical_items: 8,
+    pending_tasks: 3,
+    decisions_made: 12,
+    total_size_bytes: 12456
+  },
+  critical_context: {
+    high_priority_items: [
+      { key: "auth_method", value: "OAuth2", category: "decision", priority: "high" }
+    ],
+    next_steps: [
+      { key: "task_1", value: "Implement JWT refresh", priority: "high" }
+    ],
+    key_decisions: [
+      { key: "db_choice", value: "PostgreSQL", created_at: 1730577600000 }
+    ],
+    recent_progress: [
+      { key: "progress_1", value: "Completed login flow", created_at: 1730577600000 }
+    ]
+  },
+  restore_instructions: {
+    tool: "context_restore",
+    checkpoint_id: "ckpt_...",
+    message: "To continue this session, restore from checkpoint: pre-compact-2025-11-02T15-30-00",
+    summary: "Session has 3 pending tasks and 12 key decisions recorded."
+  }
+}
+```
 
 This tool is designed for AI agents to call proactively when `context_status` indicates high item counts.
 

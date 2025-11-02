@@ -18,7 +18,7 @@ SaveContext is a Model Context Protocol (MCP) server that provides stateful sess
 ## Installation
 
 ```bash
-git clone https://github.com/ShaneOxM/savecontext.git
+git clone https://github.com/greenfieldlabs-inc/savecontext.git
 cd savecontext/server
 pnpm install
 pnpm build

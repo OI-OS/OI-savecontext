@@ -91,6 +91,16 @@ CREATE TABLE IF NOT EXISTS file_cache (
   UNIQUE(session_id, file_path)
 );
 
+-- Session Projects: Many-to-many relationship for multi-path sessions
+CREATE TABLE IF NOT EXISTS session_projects (
+  session_id TEXT NOT NULL,
+  project_path TEXT NOT NULL,
+  added_at INTEGER NOT NULL,            -- Timestamp when path was added
+
+  PRIMARY KEY (session_id, project_path),
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
 -- ====================
 -- Indexes for Performance
 -- ====================
@@ -120,6 +130,12 @@ CREATE INDEX IF NOT EXISTS idx_file_cache_session
   ON file_cache(session_id);
 CREATE INDEX IF NOT EXISTS idx_file_cache_path
   ON file_cache(file_path);
+
+-- Session projects indexes
+CREATE INDEX IF NOT EXISTS idx_session_projects_path
+  ON session_projects(project_path);
+CREATE INDEX IF NOT EXISTS idx_session_projects_session
+  ON session_projects(session_id);
 
 -- Session lifecycle indexes
 CREATE INDEX IF NOT EXISTS idx_sessions_project_path

@@ -28,6 +28,7 @@ import {
   SessionError,
   SaveContextError,
   ValidationError,
+  DatabaseError,
   ToolResponse,
   SaveContextResponse,
   GetContextResponse,
@@ -108,11 +109,21 @@ async function handleSessionStart(args: any) {
       ? normalizeProjectPath(validated.project_path)
       : normalizeProjectPath(getCurrentProjectPath());
 
-    // Check for existing active session in this project
-    const existingActive = db.getActiveSession(projectPath);
+    // Check for existing active session matching current path
+    // This supports multi-path sessions (monorepos, related projects)
+    const existingActive = db.getActiveSessionForPaths([projectPath]);
 
     if (existingActive) {
-      // Resume existing active session instead of creating new one
+      // Check if current path is already in the session
+      const sessionPaths = db.getSessionPaths(existingActive.id);
+      const pathAlreadyExists = sessionPaths.includes(projectPath);
+
+      // If current path not in session, add it
+      if (!pathAlreadyExists) {
+        db.addProjectPath(existingActive.id, projectPath);
+      }
+
+      // Resume existing active session
       currentSessionId = existingActive.id;
       const stats = db.getSessionStats(existingActive.id);
 
@@ -121,13 +132,16 @@ async function handleSessionStart(args: any) {
           id: existingActive.id,
           name: existingActive.name,
           channel: existingActive.channel,
-          project_path: existingActive.project_path,
+          project_paths: db.getSessionPaths(existingActive.id),
           status: existingActive.status,
           item_count: stats?.total_items || 0,
           created_at: existingActive.created_at,
           resumed: true,
+          path_added: !pathAlreadyExists,
         },
-        `Resumed existing active session '${existingActive.name}' (${stats?.total_items || 0} items)`
+        pathAlreadyExists
+          ? `Resumed existing active session '${existingActive.name}' (${stats?.total_items || 0} items)`
+          : `Resumed session '${existingActive.name}' and added path '${projectPath}' (${stats?.total_items || 0} items)`
       );
     }
 
@@ -905,6 +919,61 @@ async function handleSessionDelete(args: any) {
   }
 }
 
+/**
+ * Add a project path to the current session
+ * Enables sessions to span multiple related directories (e.g., monorepo folders)
+ */
+async function handleSessionAddPath(args: any) {
+  try {
+    const sessionId = ensureSession();
+
+    // Get project path (default to current directory if not provided)
+    const projectPath = args?.project_path
+      ? normalizeProjectPath(args.project_path)
+      : normalizeProjectPath(getCurrentProjectPath());
+
+    const session = db.getSession(sessionId);
+    if (!session) {
+      throw new SessionError('Current session not found');
+    }
+
+    // Check if path already exists
+    const existingPaths = db.getSessionPaths(sessionId);
+    if (existingPaths.includes(projectPath)) {
+      return success(
+        {
+          session_id: sessionId,
+          session_name: session.name,
+          project_path: projectPath,
+          all_paths: existingPaths,
+          already_existed: true,
+        },
+        `Path '${projectPath}' already exists in session '${session.name}'`
+      );
+    }
+
+    // Add the new path
+    const added = db.addProjectPath(sessionId, projectPath);
+    if (added) {
+      const updatedPaths = db.getSessionPaths(sessionId);
+      return success(
+        {
+          session_id: sessionId,
+          session_name: session.name,
+          project_path: projectPath,
+          all_paths: updatedPaths,
+          path_count: updatedPaths.length,
+        },
+        `Added path '${projectPath}' to session '${session.name}' (${updatedPaths.length} paths total)`
+      );
+    } else {
+      throw new DatabaseError('Failed to add path to session');
+    }
+  } catch (err) {
+    return error('Failed to add path to session', err);
+  }
+}
+
 // ====================
 // MCP Server Handlers
 // ====================
@@ -1198,6 +1267,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['session_id'],
         },
       },
+      {
+        name: 'context_session_add_path',
+        description: 'Add a project path to the current session. Enables sessions to span multiple related directories (e.g., monorepo folders like /frontend and /backend, or /app and /dashboard). Auto-adds current path if not specified.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            project_path: {
+              type: 'string',
+              description: 'Project path to add (defaults to current working directory)',
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -1239,6 +1321,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: 'text', text: JSON.stringify(await handleSessionSwitch(args), null, 2) }] };
       case 'context_session_delete':
         return { content: [{ type: 'text', text: JSON.stringify(await handleSessionDelete(args), null, 2) }] };
+      case 'context_session_add_path':
+        return { content: [{ type: 'text', text: JSON.stringify(await handleSessionAddPath(args), null, 2) }] };
       default:
         return {
           content: [{ type: 'text', text: JSON.stringify(error(`Unknown tool: ${name}`)) }],

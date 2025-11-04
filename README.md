@@ -9,6 +9,7 @@ SaveContext is a Model Context Protocol (MCP) server that provides stateful sess
 ## Features
 
 - **Session Lifecycle Management**: Full session state management with pause, resume, end, switch, and delete operations
+- **Multi-Path Sessions**: Sessions can span multiple related directories (monorepos, frontend/backend, etc.)
 - **Project Isolation**: Automatically filters sessions by project path - only see sessions from your current repository
 - **Auto-Resume**: If an active session exists for your project, automatically resume it instead of creating duplicates
 - **Session Management**: Organize work by sessions with automatic channel detection from git branches
@@ -49,7 +50,7 @@ The server communicates via stdio using the MCP protocol.
 
 ### Server Implementation
 
-The MCP server is built on `@modelcontextprotocol/sdk` and provides 16 tools for context management. The server maintains a single active session per connection and stores all data in a local SQLite database.
+The MCP server is built on `@modelcontextprotocol/sdk` and provides 17 tools for context management. The server maintains a single active session per connection and stores all data in a local SQLite database.
 
 ```
 server/
@@ -293,6 +294,26 @@ Returns:
 {
   session_id: "sess_...",
   session_name: "Old Session"
+}
+```
+
+**context_session_add_path**
+```javascript
+{
+  project_path?: string  // Optional: defaults to current working directory
+}
+```
+Adds a project path to the current session, enabling sessions to span multiple related directories (e.g., monorepo folders like `/frontend` and `/backend`, or `/app` and `/dashboard`). If the path already exists in the session, returns success without modification. Requires an active session.
+
+Returns:
+```javascript
+{
+  session_id: "sess_...",
+  session_name: "Implementing Auth",
+  project_path: "/Users/you/project/backend",
+  all_paths: ["/Users/you/project/frontend", "/Users/you/project/backend"],
+  path_count: 2,
+  already_existed: false
 }
 ```
 

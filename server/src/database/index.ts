@@ -106,31 +106,44 @@ export class DatabaseManager {
 
   createSession(session: Omit<Session, 'id' | 'created_at' | 'updated_at'>): Session {
     const now = Date.now();
-    const stmt = this.db.prepare(`
-      INSERT INTO sessions (id, name, description, branch, channel, project_path, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
     const id = this.generateId();
-    stmt.run(
-      id,
-      session.name,
-      session.description || null,
-      session.branch || null,
-      session.channel,
-      session.project_path || null,
-      session.status || 'active',
-      now,
-      now
-    );
 
-    return {
-      id,
-      ...session,
-      status: session.status || 'active',
-      created_at: now,
-      updated_at: now,
-    } as Session;
+    // Use transaction to ensure both inserts succeed or both fail
+    return this.transaction(() => {
+      // Insert into sessions table
+      const stmt = this.db.prepare(`
+        INSERT INTO sessions (id, name, description, branch, channel, project_path, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(
+        id,
+        session.name,
+        session.description || null,
+        session.branch || null,
+        session.channel,
+        session.project_path || null,
+        session.status || 'active',
+        now,
+        now
+      );
+
+      // Insert into session_projects if project_path provided
+      if (session.project_path) {
+        const pathStmt = this.db.prepare(`
+          INSERT INTO session_projects (session_id, project_path, added_at)
+          VALUES (?, ?, ?)
+        `);
+        pathStmt.run(id, session.project_path, now);
+      }
+
+      return {
+        id,
+        ...session,
+        status: session.status || 'active',
+        created_at: now,
+        updated_at: now,
+      } as Session;
+    });
   }
 
   getSession(sessionId: string): Session | null {
@@ -255,6 +268,126 @@ export class DatabaseManager {
     const stmt = this.db.prepare('DELETE FROM sessions WHERE id = ?');
     const result = stmt.run(sessionId);
     return result.changes > 0;
+  }
+
+  // ===============================
+  // Multi-Path Session Operations
+  // ===============================
+
+  /**
+   * Get all project paths for a session
+   */
+  getSessionPaths(sessionId: string): string[] {
+    const stmt = this.db.prepare(`
+      SELECT project_path FROM session_projects
+      WHERE session_id = ?
+      ORDER BY added_at ASC
+    `);
+    const rows = stmt.all(sessionId) as Array<{ project_path: string }>;
+    return rows.map((row) => row.project_path);
+  }
+
+  /**
+   * Add a project path to a session
+   * Returns false if path already exists for session
+   */
+  addProjectPath(sessionId: string, projectPath: string): boolean {
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO session_projects (session_id, project_path, added_at)
+        VALUES (?, ?, ?)
+      `);
+      const result = stmt.run(sessionId, projectPath, Date.now());
+      return result.changes > 0;
+    } catch (error) {
+      // If unique constraint fails, path already exists
+      return false;
+    }
+  }
+
+  /**
+   * Remove a project path from a session
+   * Returns false if path doesn't exist or is the last path (can't remove last path)
+   */
+  removeProjectPath(sessionId: string, projectPath: string): boolean {
+    // Check if this is the last path
+    const paths = this.getSessionPaths(sessionId);
+    if (paths.length <= 1) {
+      throw new DatabaseError('Cannot remove the last project path from a session', {
+        sessionId,
+        projectPath,
+      });
+    }
+
+    const stmt = this.db.prepare(`
+      DELETE FROM session_projects
+      WHERE session_id = ? AND project_path = ?
+    `);
+    const result = stmt.run(sessionId, projectPath);
+    return result.changes > 0;
+  }
+
+  /**
+   * Get active session for any of the provided project paths
+   * Returns the most recently updated session that matches any path
+   */
+  getActiveSessionForPaths(projectPaths: string[]): Session | null {
+    if (projectPaths.length === 0) {
+      return null;
+    }
+
+    const placeholders = projectPaths.map(() => '?').join(',');
+    const stmt = this.db.prepare(`
+      SELECT s.* FROM sessions s
+      JOIN session_projects sp ON s.id = sp.session_id
+      WHERE sp.project_path IN (${placeholders})
+        AND s.status = 'active'
+      ORDER BY s.updated_at DESC
+      LIMIT 1
+    `);
+    return stmt.get(...projectPaths) as Session | null;
+  }
+
+  /**
+   * List sessions that match any of the provided project paths
+   */
+  listSessionsByPaths(
+    projectPaths: string[],
+    limit: number = 10,
+    filters?: {
+      status?: string;
+      include_completed?: boolean;
+    }
+  ): Session[] {
+    if (projectPaths.length === 0) {
+      return [];
+    }
+
+    const placeholders = projectPaths.map(() => '?').join(',');
+    let query = `
+      SELECT DISTINCT s.* FROM sessions s
+      JOIN session_projects sp ON s.id = sp.session_id
+      WHERE sp.project_path IN (${placeholders})
+    `;
+    const params: any[] = [...projectPaths];
+
+    // Filter by status if provided
+    if (filters?.status && filters.status !== 'all') {
+      query += ' AND s.status = ?';
+      params.push(filters.status);
+    }
+
+    // Exclude completed sessions unless explicitly included
+    if (!filters?.include_completed && filters?.status !== 'completed' && filters?.status !== 'all') {
+      query += ' AND s.status != ?';
+      params.push('completed');
+    }
+
+    query += ' ORDER BY s.updated_at DESC LIMIT ?';
+    params.push(limit);
+
+    const stmt = this.db.prepare(query);
+    return stmt.all(...params) as Session[];
   }
 
   // ========================

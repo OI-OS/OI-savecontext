@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2025-11-04
+
+### Added
+- Multi-path session support for monorepos and related projects
+- `context_session_add_path` tool to manually add project paths to active session
+- `session_projects` junction table for many-to-many session-project relationships
+- Database methods: `getSessionPaths`, `addProjectPath`, `removeProjectPath`, `getActiveSessionForPaths`, `listSessionsByPaths`
+- Auto-add current path when resuming sessions in new directories
+
+### Changed
+- `context_session_start` automatically adds new paths to existing active sessions when working across related directories
+- Session responses now include `project_paths` array showing all associated paths
+- Database migration system: created 002_add_multi_path_sessions.sql
+- Tool count increased from 16 to 17
+
+### Fixed
+- Agents working across monorepo folders (e.g., /frontend and /backend) can now share the same session
+
 ## [0.1.0] - 2025-11-04
 
 ### Added

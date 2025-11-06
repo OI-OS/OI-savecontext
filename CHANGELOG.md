@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
 - Provider detection for Claude Code, Cursor, Cline, Factory.ai, Codex CLI, Windsurf, Continue.dev
 - Database methods: `setCurrentSessionForAgent`, `getCurrentSessionForAgent`, `clearCurrentSessionForAgent`, `getAgentsForSession`
 - Session responses now include `agent_id` and `provider` fields
+- `context_delete` tool for removing context items
+- `context_update` tool for editing existing context items
+- Database method `updateContextItem()` for partial field updates
 
 ### Changed
 - `context_session_start` now uses agent-scoped session tracking instead of global active session
@@ -20,6 +23,8 @@ All notable changes to this project will be documented in this file.
 - Session isolation by agent ID (project + branch combination)
 - MCP initialization captures `clientInfo.name` from protocol handshake
 - Tool switching supported (e.g., start in Factory.ai, continue in Claude Code)
+- Context items can now be deleted and edited after creation
+- Tool count increased from 17 to 19
 
 ### Fixed
 - Multiple terminal instances can now have their own active sessions simultaneously

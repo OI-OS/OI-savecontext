@@ -52,7 +52,7 @@ The server communicates via stdio using the MCP protocol.
 
 ### Server Implementation
 
-The MCP server is built on `@modelcontextprotocol/sdk` and provides 17 tools for context management. The server maintains a single active session per connection and stores all data in a local SQLite database.
+The MCP server is built on `@modelcontextprotocol/sdk` and provides 19 tools for context management. The server maintains a single active session per connection and stores all data in a local SQLite database.
 
 ```
 server/
@@ -174,6 +174,48 @@ Saves a context item to the active session.
 }
 ```
 Retrieves context items with optional filtering.
+
+**context_delete**
+```javascript
+{
+  key: string  // Required: key of the context item to delete
+}
+```
+Deletes a context item from the current session. Use to remove outdated information, fix mistakes, or clean up test data.
+
+Returns:
+```javascript
+{
+  deleted: true,
+  key: "item_key",
+  session_id: "sess_..."
+}
+```
+
+**context_update**
+```javascript
+{
+  key: string,                                      // Required: key of item to update
+  value?: string,                                   // Optional: new value
+  category?: 'task'|'decision'|'progress'|'note',  // Optional: new category
+  priority?: 'high'|'normal'|'low',                // Optional: new priority
+  channel?: string                                  // Optional: new channel
+}
+```
+Updates an existing context item. Change the value, category, priority, or channel of a previously saved item. At least one field to update is required.
+
+Returns:
+```javascript
+{
+  updated: true,
+  key: "item_key",
+  value: "updated content",
+  category: "decision",
+  priority: "high",
+  channel: "feature-auth",
+  updated_at: 1730577600000
+}
+```
 
 **context_status**
 

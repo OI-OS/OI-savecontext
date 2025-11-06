@@ -11,6 +11,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  InitializeRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { DatabaseManager } from './database/index.js';
@@ -43,6 +44,26 @@ const db = new DatabaseManager();
 // Track current session
 let currentSessionId: string | null = null;
 
+// Track MCP client information (from initialization handshake)
+// Future-proof: Supports per-connection tracking for SSE/HTTP transports
+interface ClientInfo {
+  name: string;
+  version: string;
+  provider: string;  // Normalized provider name
+  connectedAt: number;
+}
+
+interface ConnectionState {
+  clientInfo: ClientInfo;
+  sessionId: string | null;
+}
+
+// Connection tracking
+// STDIO: One connection per process (currentConnectionId is always the same)
+// SSE/HTTP: Multiple connections (would need request context to lookup)
+const connections = new Map<string, ConnectionState>();
+let currentConnectionId: string | null = null;
+
 // Initialize MCP server
 const server = new Server(
   {
@@ -59,6 +80,67 @@ const server = new Server(
 // ====================
 // Helper Functions
 // ====================
+
+/**
+ * Normalize MCP client name to provider identifier
+ * Maps known client names to consistent provider strings
+ */
+function normalizeClientName(clientName: string): string {
+  const name = (clientName || 'unknown').toLowerCase();
+
+  // Map known MCP clients to provider names
+  if (name.includes('claude') && name.includes('code')) return 'claude-code';
+  if (name.includes('factory')) return 'factory-ai';
+  if (name.includes('cursor')) return 'cursor';
+  if (name.includes('cline')) return 'cline';
+  if (name.includes('codex')) return 'codex-cli';
+  if (name.includes('windsurf')) return 'windsurf';
+  // @DEV -- Add additional mappings as needed
+
+  // Return sanitized name for unknown clients
+  return name.replace(/\s+/g, '-');
+}
+
+/**
+ * Generate agent ID from project path and git branch
+ * Format: "${projectName}-${branch}"
+ * Can be overridden via SAVECONTEXT_AGENT_ID env var
+ */
+function getAgentId(projectPath: string, branch: string): string {
+  // Allow manual override for power users
+  if (process.env.SAVECONTEXT_AGENT_ID) {
+    return process.env.SAVECONTEXT_AGENT_ID;
+  }
+
+  const projectName = projectPath.split('/').pop() || 'unknown';
+  const safeBranch = branch || 'main';
+
+  return `${projectName}-${safeBranch}`;
+}
+
+/**
+ * Get the current provider from the active connection
+ * STDIO: Always returns the single connected client's provider
+ * SSE/HTTP: Would need request context to determine which connection
+ */
+function getCurrentProvider(): string {
+  if (!currentConnectionId) {
+    return 'unknown';
+  }
+  const connection = connections.get(currentConnectionId);
+  return connection?.clientInfo.provider || 'unknown';
+}
+
+/**
+ * Get the current client info from the active connection
+ */
+function getCurrentClientInfo(): ClientInfo {
+  if (!currentConnectionId) {
+    return { name: 'unknown', version: '0.0.0', provider: 'unknown', connectedAt: Date.now() };
+  }
+  const connection = connections.get(currentConnectionId);
+  return connection?.clientInfo || { name: 'unknown', version: '0.0.0', provider: 'unknown', connectedAt: Date.now() };
+}
 
 /**
  * Ensure we have an active session
@@ -109,42 +191,52 @@ async function handleSessionStart(args: any) {
       ? normalizeProjectPath(validated.project_path)
       : normalizeProjectPath(getCurrentProjectPath());
 
-    // Check for existing active session matching current path
-    // This supports multi-path sessions (monorepos, related projects)
-    const existingActive = db.getActiveSessionForPaths([projectPath]);
+    // Generate agent ID for this project + branch combination
+    const agentId = getAgentId(projectPath, branch || 'main');
+    const provider = getCurrentProvider();
 
-    if (existingActive) {
+    // Check if THIS agent already has a current session
+    const agentSession = db.getCurrentSessionForAgent(agentId);
+
+    if (agentSession) {
+      // Agent already has a current session - resume it
       // Check if current path is already in the session
-      const sessionPaths = db.getSessionPaths(existingActive.id);
+      const sessionPaths = db.getSessionPaths(agentSession.id);
       const pathAlreadyExists = sessionPaths.includes(projectPath);
 
-      // If current path not in session, add it
+      // If current path not in session, add it (multi-path support)
       if (!pathAlreadyExists) {
-        db.addProjectPath(existingActive.id, projectPath);
+        db.addProjectPath(agentSession.id, projectPath);
       }
 
-      // Resume existing active session
-      currentSessionId = existingActive.id;
-      const stats = db.getSessionStats(existingActive.id);
+      // Update agent's last active time and provider
+      db.setCurrentSessionForAgent(agentId, agentSession.id, projectPath, branch || 'main', provider);
+
+      // Set as current session in memory
+      currentSessionId = agentSession.id;
+      const stats = db.getSessionStats(agentSession.id);
 
       return success(
         {
-          id: existingActive.id,
-          name: existingActive.name,
-          channel: existingActive.channel,
-          project_paths: db.getSessionPaths(existingActive.id),
-          status: existingActive.status,
+          id: agentSession.id,
+          name: agentSession.name,
+          channel: agentSession.channel,
+          project_paths: db.getSessionPaths(agentSession.id),
+          status: agentSession.status,
           item_count: stats?.total_items || 0,
-          created_at: existingActive.created_at,
+          created_at: agentSession.created_at,
           resumed: true,
           path_added: !pathAlreadyExists,
+          agent_id: agentId,
+          provider,
         },
         pathAlreadyExists
-          ? `Resumed existing active session '${existingActive.name}' (${stats?.total_items || 0} items)`
-          : `Resumed session '${existingActive.name}' and added path '${projectPath}' (${stats?.total_items || 0} items)`
+          ? `Resumed session '${agentSession.name}' for agent '${agentId}' (${stats?.total_items || 0} items)`
+          : `Resumed session '${agentSession.name}' and added path '${projectPath}' (${stats?.total_items || 0} items)`
       );
     }
 
+    // No existing session for this agent - create new one
     // Derive channel from branch or name
     const channel = normalizeChannel(
       validated.channel || deriveDefaultChannel(branch || undefined, validated.name)
@@ -160,7 +252,10 @@ async function handleSessionStart(args: any) {
       status: 'active',
     });
 
-    // Set as current session
+    // Register session for this agent
+    db.setCurrentSessionForAgent(agentId, session.id, projectPath, branch || 'main', provider);
+
+    // Set as current session in memory
     currentSessionId = session.id;
 
     const response: SessionResponse = {
@@ -170,11 +265,13 @@ async function handleSessionStart(args: any) {
       project_path: session.project_path,
       status: session.status,
       created_at: session.created_at,
+      agent_id: agentId,
+      provider,
     };
 
     return success(
       response,
-      `Session '${session.name}' started (channel: ${session.channel}, project: ${projectPath})`
+      `Session '${session.name}' started for agent '${agentId}' (channel: ${session.channel}, provider: ${provider})`
     );
   } catch (err) {
     return error('Failed to start session', err);
@@ -706,11 +803,16 @@ async function handleListSessions(args: any) {
     const status = args?.status;
     const includeCompleted = args?.include_completed || false;
 
-    const sessions = db.listSessions(limit, {
-      project_path: projectPath ? normalizeProjectPath(projectPath) : undefined,
-      status,
-      include_completed: includeCompleted,
-    });
+    // Use listSessionsByPaths to properly check session_projects junction table
+    // This ensures multi-path sessions appear in all their associated projects
+    const sessions = db.listSessionsByPaths(
+      projectPath ? [normalizeProjectPath(projectPath)] : [],
+      limit,
+      {
+        status,
+        include_completed: includeCompleted,
+      }
+    );
 
     return success(
       { sessions, count: sessions.length },
@@ -977,6 +1079,54 @@ async function handleSessionAddPath(args: any) {
 // ====================
 // MCP Server Handlers
 // ====================
+
+/**
+ * Handle MCP initialization - capture client info
+ * This is called when an MCP client first connects
+ *
+ * STDIO: One connection per process, connectionId is static
+ * SSE/HTTP: Multiple connections, would generate unique IDs per request
+ */
+server.setRequestHandler(InitializeRequestSchema, async (request) => {
+  // Extract client information from the initialization handshake
+  const rawClientName = request.params.clientInfo?.name || 'unknown';
+  const rawClientVersion = request.params.clientInfo?.version || '0.0.0';
+  const provider = normalizeClientName(rawClientName);
+
+  // Create connection ID
+  // STDIO: Use static ID since it's 1:1
+  // SSE/HTTP: Would use crypto.randomUUID() or request context
+  const connectionId = 'stdio-main';
+
+  // Store connection state
+  const clientInfo: ClientInfo = {
+    name: rawClientName,
+    version: rawClientVersion,
+    provider,
+    connectedAt: Date.now(),
+  };
+
+  connections.set(connectionId, {
+    clientInfo,
+    sessionId: null,
+  });
+
+  currentConnectionId = connectionId;
+
+  // Log for debugging (to stderr, not stdout)
+  console.error(`MCP Client connected: ${provider} (${rawClientName} v${rawClientVersion})`);
+
+  return {
+    protocolVersion: request.params.protocolVersion,
+    capabilities: {
+      tools: {},
+    },
+    serverInfo: {
+      name: 'savecontext',
+      version: '0.1.2',
+    },
+  };
+});
 
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {

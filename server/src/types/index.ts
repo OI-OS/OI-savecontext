@@ -201,6 +201,8 @@ export interface SessionResponse {
   project_path?: string;
   status?: SessionStatus_Type;
   created_at: number;
+  agent_id?: string;      // Agent identifier (project-branch)
+  provider?: string;      // MCP client provider (claude-code, cursor, etc)
 }
 
 // ====================

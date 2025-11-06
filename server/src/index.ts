@@ -367,6 +367,83 @@ async function handleGetContext(args: any) {
 }
 
 /**
+ * Delete context item from current session
+ */
+async function handleDeleteContext(args: any) {
+  try {
+    const sessionId = ensureSession();
+
+    if (!args?.key) {
+      throw new ValidationError('key is required');
+    }
+
+    const deleted = db.deleteContextItem(sessionId, args.key);
+
+    if (!deleted) {
+      return success(
+        { deleted: false, key: args.key },
+        `No item found with key '${args.key}'`
+      );
+    }
+
+    return success(
+      { deleted: true, key: args.key, session_id: sessionId },
+      `Deleted context item '${args.key}'`
+    );
+  } catch (err) {
+    return error('Failed to delete context', err);
+  }
+}
+
+/**
+ * Update existing context item
+ */
+async function handleUpdateContext(args: any) {
+  try {
+    const sessionId = ensureSession();
+
+    if (!args?.key) {
+      throw new ValidationError('key is required');
+    }
+
+    // Build updates object
+    const updates: any = {};
+    if (args.value !== undefined) updates.value = args.value;
+    if (args.category !== undefined) updates.category = args.category;
+    if (args.priority !== undefined) updates.priority = args.priority;
+    if (args.channel !== undefined) updates.channel = normalizeChannel(args.channel);
+
+    if (Object.keys(updates).length === 0) {
+      throw new ValidationError('At least one field to update is required (value, category, priority, or channel)');
+    }
+
+    const updated = db.updateContextItem(sessionId, args.key, updates);
+
+    if (!updated) {
+      return success(
+        { updated: false, key: args.key },
+        `No item found with key '${args.key}'`
+      );
+    }
+
+    return success(
+      {
+        updated: true,
+        key: updated.key,
+        value: updated.value,
+        category: updated.category,
+        priority: updated.priority,
+        channel: updated.channel,
+        updated_at: updated.updated_at,
+      },
+      `Updated context item '${args.key}'`
+    );
+  } catch (err) {
+    return error('Failed to update context', err);
+  }
+}
+
+/**
  * Create checkpoint of current session state
  */
 async function handleCreateCheckpoint(args: any) {
@@ -1221,6 +1298,52 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: 'context_delete',
+        description: 'Delete a context item from the current session. Use to remove outdated information, fix mistakes, or clean up test data.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            key: {
+              type: 'string',
+              description: 'Key of the context item to delete',
+            },
+          },
+          required: ['key'],
+        },
+      },
+      {
+        name: 'context_update',
+        description: 'Update an existing context item. Change the value, category, priority, or channel of a previously saved item.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            key: {
+              type: 'string',
+              description: 'Key of the context item to update',
+            },
+            value: {
+              type: 'string',
+              description: 'New value for the context item',
+            },
+            category: {
+              type: 'string',
+              enum: ['task', 'decision', 'progress', 'note'],
+              description: 'New category',
+            },
+            priority: {
+              type: 'string',
+              enum: ['high', 'normal', 'low'],
+              description: 'New priority level',
+            },
+            channel: {
+              type: 'string',
+              description: 'New channel',
+            },
+          },
+          required: ['key'],
+        },
+      },
+      {
         name: 'context_checkpoint',
         description: 'Create named checkpoint snapshot for manual saves. Use before major refactors, git branch switches, or experimental changes. For auto-save before context fills up, use context_prepare_compaction instead.',
         inputSchema: {
@@ -1445,6 +1568,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: 'text', text: JSON.stringify(await handleSaveContext(args), null, 2) }] };
       case 'context_get':
         return { content: [{ type: 'text', text: JSON.stringify(await handleGetContext(args), null, 2) }] };
+      case 'context_delete':
+        return { content: [{ type: 'text', text: JSON.stringify(await handleDeleteContext(args), null, 2) }] };
+      case 'context_update':
+        return { content: [{ type: 'text', text: JSON.stringify(await handleUpdateContext(args), null, 2) }] };
       case 'context_checkpoint':
         return { content: [{ type: 'text', text: JSON.stringify(await handleCreateCheckpoint(args), null, 2) }] };
       case 'context_prepare_compaction':

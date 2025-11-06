@@ -567,6 +567,68 @@ export class DatabaseManager {
     return result.changes > 0;
   }
 
+  updateContextItem(
+    sessionId: string,
+    key: string,
+    updates: {
+      value?: string;
+      category?: string;
+      priority?: string;
+      channel?: string;
+    }
+  ): ContextItem | null {
+    // First get the existing item
+    const existing = this.getContextItem(sessionId, key);
+    if (!existing) {
+      return null;
+    }
+
+    // Build update query dynamically
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    if (updates.value !== undefined) {
+      fields.push('value = ?');
+      params.push(updates.value);
+      // Recalculate size if value changed
+      fields.push('size = ?');
+      params.push(key.length + updates.value.length);
+    }
+
+    if (updates.category !== undefined) {
+      fields.push('category = ?');
+      params.push(updates.category);
+    }
+
+    if (updates.priority !== undefined) {
+      fields.push('priority = ?');
+      params.push(updates.priority);
+    }
+
+    if (updates.channel !== undefined) {
+      fields.push('channel = ?');
+      params.push(updates.channel);
+    }
+
+    // Always update updated_at
+    fields.push('updated_at = ?');
+    params.push(Date.now());
+
+    // Add WHERE clause params
+    params.push(sessionId, key);
+
+    const stmt = this.db.prepare(`
+      UPDATE context_items
+      SET ${fields.join(', ')}
+      WHERE session_id = ? AND key = ?
+    `);
+
+    stmt.run(...params);
+
+    // Return updated item
+    return this.getContextItem(sessionId, key);
+  }
+
   // ======================
   // Checkpoint Operations
   // ======================

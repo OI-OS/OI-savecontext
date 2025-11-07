@@ -35,6 +35,8 @@ All notable changes to this project will be documented in this file.
 - `list_sessions` now correctly shows multi-path sessions by querying `session_projects` junction table instead of only checking primary `project_path`
 - Agent activity timestamps now update in real-time instead of showing stale timestamps from hours/days ago
 - Agent switching (e.g., Claude Code → Factory.ai) now creates separate agent entries instead of overwriting the previous agent
+- `context_session_end` and `context_session_pause` now clear agent associations, allowing fresh session creation
+- Completed sessions can now be resumed (removed blocking restriction)
 
 ## [0.1.1] - 2025-11-04
 

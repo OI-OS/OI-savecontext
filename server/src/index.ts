@@ -962,6 +962,13 @@ async function handleSessionEnd() {
     // Clear current session
     currentSessionId = null;
 
+    // Clear agent association with this session
+    const branch = await getCurrentBranch();
+    const projectPath = normalizeProjectPath(getCurrentProjectPath());
+    const provider = getCurrentProvider();
+    const agentId = getAgentId(projectPath, branch || 'main', provider);
+    db.clearCurrentSessionForAgent(agentId);
+
     return success(
       {
         session_id: sessionId,
@@ -996,6 +1003,13 @@ async function handleSessionPause() {
     // Clear current session
     currentSessionId = null;
 
+    // Clear agent association with this session
+    const branch = await getCurrentBranch();
+    const projectPath = normalizeProjectPath(getCurrentProjectPath());
+    const provider = getCurrentProvider();
+    const agentId = getAgentId(projectPath, branch || 'main', provider);
+    db.clearCurrentSessionForAgent(agentId);
+
     return success(
       {
         session_id: sessionId,
@@ -1025,11 +1039,7 @@ async function handleSessionResume(args: any) {
       throw new SessionError(`Session '${session_id}' not found`);
     }
 
-    if (session.status === 'completed') {
-      throw new SessionError('Cannot resume completed session. Create a new session instead.');
-    }
-
-    // Resume the session
+    // Resume the session (works for paused or completed sessions)
     db.resumeSession(session_id);
 
     // Set as current session

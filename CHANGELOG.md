@@ -8,21 +8,23 @@ All notable changes to this project will be documented in this file.
 - Multi-agent support for concurrent terminal instances
 - `agent_sessions` table for tracking which session each agent is currently working on
 - Automatic MCP client detection via protocol initialization handshake
-- Agent ID generation from project path and git branch (`{projectName}-{branch}`)
+- Agent ID generation from project path, git branch, and provider (`{projectName}-{branch}-{provider}`)
 - Per-connection client tracking (future-proof for SSE/HTTP transports)
 - Provider detection for Claude Code, Cursor, Cline, Factory.ai, Codex CLI, Windsurf, Continue.dev
 - Database methods: `setCurrentSessionForAgent`, `getCurrentSessionForAgent`, `clearCurrentSessionForAgent`, `getAgentsForSession`
 - Session responses now include `agent_id` and `provider` fields
+- Agent activity timestamp tracking on all operations (save, update, delete, checkpoint, resume)
 - `context_delete` tool for removing context items
 - `context_update` tool for editing existing context items
 - Database method `updateContextItem()` for partial field updates
 
 ### Changed
 - `context_session_start` now uses agent-scoped session tracking instead of global active session
-- Multiple Claude Code terminals can now work simultaneously without conflicts
-- Session isolation by agent ID (project + branch combination)
+- Multiple tools and terminals can now work simultaneously on the same session without conflicts
+- Session isolation by agent ID (project + branch + provider combination)
 - MCP initialization captures `clientInfo.name` from protocol handshake
-- Tool switching supported (e.g., start in Factory.ai, continue in Claude Code)
+- Multiple tools can work on same session concurrently (e.g., Claude Code and Factory.ai tracked as separate agents)
+- Agent activity timestamps update automatically on every operation to track real-time activity
 - Context items can now be deleted and edited after creation
 - Tool count increased from 17 to 19
 
@@ -31,6 +33,8 @@ All notable changes to this project will be documented in this file.
 - Branch isolation works automatically (main vs feature branches = different agents)
 - No more forced pause/resume when switching between terminals
 - `list_sessions` now correctly shows multi-path sessions by querying `session_projects` junction table instead of only checking primary `project_path`
+- Agent activity timestamps now update in real-time instead of showing stale timestamps from hours/days ago
+- Agent switching (e.g., Claude Code → Factory.ai) now creates separate agent entries instead of overwriting the previous agent
 
 ## [0.1.1] - 2025-11-04
 

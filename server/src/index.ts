@@ -102,11 +102,11 @@ function normalizeClientName(clientName: string): string {
 }
 
 /**
- * Generate agent ID from project path and git branch
- * Format: "${projectName}-${branch}"
+ * Generate agent ID from project path, git branch, and provider
+ * Format: "${projectName}-${branch}-${provider}"
  * Can be overridden via SAVECONTEXT_AGENT_ID env var
  */
-function getAgentId(projectPath: string, branch: string): string {
+function getAgentId(projectPath: string, branch: string, provider: string): string {
   // Allow manual override for power users
   if (process.env.SAVECONTEXT_AGENT_ID) {
     return process.env.SAVECONTEXT_AGENT_ID;
@@ -114,8 +114,9 @@ function getAgentId(projectPath: string, branch: string): string {
 
   const projectName = projectPath.split('/').pop() || 'unknown';
   const safeBranch = branch || 'main';
+  const safeProvider = provider || 'unknown';
 
-  return `${projectName}-${safeBranch}`;
+  return `${projectName}-${safeBranch}-${safeProvider}`;
 }
 
 /**
@@ -140,6 +141,32 @@ function getCurrentClientInfo(): ClientInfo {
   }
   const connection = connections.get(currentConnectionId);
   return connection?.clientInfo || { name: 'unknown', version: '0.0.0', provider: 'unknown', connectedAt: Date.now() };
+}
+
+/**
+ * Update agent activity timestamp for current session
+ * Call this on every operation to keep agent last_active_at current
+ */
+async function updateAgentActivity() {
+  if (!currentSessionId) {
+    return; // No active session, nothing to update
+  }
+
+  try {
+    const session = db.getSession(currentSessionId);
+    if (!session) return;
+
+    const branch = await getCurrentBranch();
+    const projectPath = normalizeProjectPath(getCurrentProjectPath());
+    const provider = getCurrentProvider();
+    const agentId = getAgentId(projectPath, branch || 'main', provider);
+
+    // Update agent's last_active_at timestamp
+    db.setCurrentSessionForAgent(agentId, currentSessionId, projectPath, branch || 'main', provider);
+  } catch (err) {
+    // Silently fail - don't break operations if activity update fails
+    console.error('Failed to update agent activity:', err);
+  }
 }
 
 /**
@@ -191,9 +218,9 @@ async function handleSessionStart(args: any) {
       ? normalizeProjectPath(validated.project_path)
       : normalizeProjectPath(getCurrentProjectPath());
 
-    // Generate agent ID for this project + branch combination
-    const agentId = getAgentId(projectPath, branch || 'main');
+    // Generate agent ID for this project + branch + provider combination
     const provider = getCurrentProvider();
+    const agentId = getAgentId(projectPath, branch || 'main', provider);
 
     // Check if THIS agent already has a current session
     const agentSession = db.getCurrentSessionForAgent(agentId);
@@ -305,6 +332,9 @@ async function handleSaveContext(args: any) {
       size: validated.key.length + validated.value.length,
     });
 
+    // Update agent activity timestamp
+    await updateAgentActivity();
+
     const response: SaveContextResponse = {
       id: item.id,
       key: item.key,
@@ -386,6 +416,9 @@ async function handleDeleteContext(args: any) {
       );
     }
 
+    // Update agent activity timestamp
+    await updateAgentActivity();
+
     return success(
       { deleted: true, key: args.key, session_id: sessionId },
       `Deleted context item '${args.key}'`
@@ -425,6 +458,9 @@ async function handleUpdateContext(args: any) {
         `No item found with key '${args.key}'`
       );
     }
+
+    // Update agent activity timestamp
+    await updateAgentActivity();
 
     return success(
       {
@@ -471,6 +507,9 @@ async function handleCreateCheckpoint(args: any) {
       git_status,
       git_branch,
     });
+
+    // Update agent activity timestamp
+    await updateAgentActivity();
 
     const response: CheckpointResponse = {
       id: checkpoint.id,
@@ -995,6 +1034,9 @@ async function handleSessionResume(args: any) {
 
     // Set as current session
     currentSessionId = session_id;
+
+    // Update agent activity timestamp
+    await updateAgentActivity();
 
     const stats = db.getSessionStats(session_id);
 

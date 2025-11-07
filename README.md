@@ -114,6 +114,16 @@ The server uses SQLite with the following schema:
 - `item_id` (TEXT)
 - `item_snapshot` (TEXT) - JSON snapshot of context_item
 
+**agent_sessions** - Tracks which agent is currently working on each session
+- `agent_id` (TEXT PRIMARY KEY) - Format: `{projectName}-{branch}-{provider}` (e.g., `savecontext-main-claude-code`)
+- `session_id` (TEXT) - Foreign key to sessions
+- `project_path` (TEXT) - Full project path
+- `git_branch` (TEXT) - Git branch name
+- `provider` (TEXT) - MCP client provider (claude-code, factory-ai, cursor, cline, etc.)
+- `last_active_at` (INTEGER) - Timestamp of last activity
+
+This enables multi-agent support: multiple tools can work on the same session simultaneously (e.g., Claude Code and Factory.ai), each tracked as a separate agent.
+
 ### Channel System
 
 Channels provide automatic organization of context based on git branches:

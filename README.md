@@ -52,7 +52,7 @@ The server communicates via stdio using the MCP protocol.
 
 ### Server Implementation
 
-The MCP server is built on `@modelcontextprotocol/sdk` and provides 19 tools for context management. The server maintains a single active session per connection and stores all data in a local SQLite database.
+The MCP server is built on `@modelcontextprotocol/sdk` and provides 27 tools for context management, including session lifecycle, memory storage, task management, and checkpoints. The server maintains a single active session per connection and stores all data in a local SQLite database.
 
 ```
 server/
@@ -123,6 +123,30 @@ The server uses SQLite with the following schema:
 - `last_active_at` (INTEGER) - Timestamp of last activity
 
 This enables multi-agent support: multiple tools can work on the same session simultaneously (e.g., Claude Code and Factory.ai), each tracked as a separate agent.
+
+**project_memory** - Stores project-specific commands, configs, and notes
+- `id` (TEXT PRIMARY KEY)
+- `project_path` (TEXT) - Project directory path
+- `key` (TEXT) - Unique identifier within project
+- `value` (TEXT) - The stored value (command, URL, note, etc.)
+- `category` (TEXT) - Type: command, config, or note
+- `created_at` (INTEGER)
+- `updated_at` (INTEGER)
+- UNIQUE constraint on (project_path, key)
+
+Memory persists across sessions and is accessible by all agents working on the project. Useful for storing frequently used commands, API endpoints, deployment instructions, etc.
+
+**tasks** - Simple task management for tracking work across sessions
+- `id` (TEXT PRIMARY KEY)
+- `project_path` (TEXT) - Project directory path
+- `title` (TEXT) - Task title
+- `description` (TEXT) - Optional task description
+- `status` (TEXT) - todo or done
+- `created_at` (INTEGER)
+- `updated_at` (INTEGER)
+- `completed_at` (INTEGER) - Timestamp when marked done
+
+Tasks are project-scoped and persist across all sessions for that project.
 
 ### Channel System
 
@@ -368,6 +392,213 @@ Returns:
   all_paths: ["/Users/you/project/frontend", "/Users/you/project/backend"],
   path_count: 2,
   already_existed: false
+}
+```
+
+### Project Memory & Tasks
+
+**context_memory_save**
+```javascript
+{
+  key: string,                        // Required: unique identifier within project
+  value: string,                      // Required: the value to remember
+  category?: 'command'|'config'|'note'  // Default: 'command'
+}
+```
+Saves project memory (command, config, or note) for the current project. Memory persists across all sessions and is accessible by all agents working on this project. Useful for storing frequently used commands, API endpoints, deployment instructions, etc.
+
+If a memory item with the same key already exists, it will be overwritten with the new value.
+
+Returns:
+```javascript
+{
+  success: true,
+  memory: {
+    id: "mem_...",
+    key: "build_command",
+    value: "npm run build:prod",
+    category: "command",
+    project_path: "/Users/you/project"
+  },
+  message: "Saved memory 'build_command' to project"
+}
+```
+
+**context_memory_get**
+```javascript
+{
+  key: string  // Required: key of the memory item to retrieve
+}
+```
+Retrieves a specific memory item by key from the current project.
+
+Returns:
+```javascript
+{
+  success: true,
+  memory: {
+    key: "api_endpoint",
+    value: "https://api.example.com/v1",
+    category: "config",
+    created_at: 1730577600000
+  }
+}
+```
+
+**context_memory_list**
+```javascript
+{
+  category?: 'command'|'config'|'note'  // Optional: filter by category
+}
+```
+Lists all memory items for the current project with optional category filtering.
+
+Returns:
+```javascript
+{
+  success: true,
+  memory: [
+    {
+      key: "test_command",
+      value: "npm test -- --coverage",
+      category: "command",
+      created_at: 1730577600000
+    },
+    {
+      key: "db_url",
+      value: "postgresql://localhost:5432/mydb",
+      category: "config",
+      created_at: 1730577600000
+    }
+  ],
+  count: 2,
+  project_path: "/Users/you/project"
+}
+```
+
+**context_memory_delete**
+```javascript
+{
+  key: string  // Required: key of the memory item to delete
+}
+```
+Deletes a memory item from the current project. Use to remove outdated commands or configurations.
+
+Returns:
+```javascript
+{
+  success: true,
+  deleted: true,
+  key: "old_command",
+  message: "Deleted memory 'old_command' from project"
+}
+```
+
+**context_task_create**
+```javascript
+{
+  title: string,         // Required: task title
+  description?: string   // Optional: task description
+}
+```
+Creates a new task for the current project. Tasks persist across all sessions and are accessible by all agents working on this project. Simple todo/done status tracking.
+
+Returns:
+```javascript
+{
+  success: true,
+  task: {
+    id: "task_...",
+    title: "Implement user authentication",
+    description: "Add JWT-based auth with refresh tokens",
+    status: "todo",
+    project_path: "/Users/you/project",
+    created_at: 1730577600000
+  },
+  message: "Created task: Implement user authentication"
+}
+```
+
+**context_task_update**
+```javascript
+{
+  task_id: string,       // Required: ID of task to update
+  title?: string,        // Optional: new title
+  description?: string,  // Optional: new description
+  status?: 'todo'|'done' // Optional: new status
+}
+```
+Updates an existing task. Can modify title, description, or status. At least one field to update is required. When marking a task as 'done', automatically sets the `completed_at` timestamp.
+
+Returns:
+```javascript
+{
+  success: true,
+  task: {
+    id: "task_...",
+    title: "Implement user authentication",
+    description: "Add JWT-based auth with refresh tokens",
+    status: "done",
+    updated_at: 1730577600000,
+    completed_at: 1730577600000
+  },
+  message: "Updated task"
+}
+```
+
+**context_task_list**
+```javascript
+{
+  status?: 'todo'|'done'|'all'  // Optional: filter by status (default: 'all')
+}
+```
+Lists tasks for the current project with optional status filtering. Returns tasks ordered by creation date (newest first).
+
+Returns:
+```javascript
+{
+  success: true,
+  tasks: [
+    {
+      id: "task_...",
+      title: "Fix login bug",
+      description: "Users can't login with special characters in password",
+      status: "todo",
+      created_at: 1730577600000,
+      updated_at: 1730577600000
+    },
+    {
+      id: "task_...",
+      title: "Add password reset",
+      status: "done",
+      created_at: 1730577500000,
+      completed_at: 1730577800000
+    }
+  ],
+  count: 2,
+  project_path: "/Users/you/project"
+}
+```
+
+**context_task_complete**
+```javascript
+{
+  task_id: string  // Required: ID of task to mark as done
+}
+```
+Quick convenience method to mark a task as done. Equivalent to `context_task_update` with `status: 'done'`, but more concise. Automatically sets the `completed_at` timestamp.
+
+Returns:
+```javascript
+{
+  success: true,
+  task: {
+    id: "task_...",
+    title: "Implement user authentication",
+    status: "done",
+    completed_at: 1730577600000
+  },
+  message: "Task marked as done"
 }
 ```
 

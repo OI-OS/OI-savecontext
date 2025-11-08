@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2025-11-06
+
+### Added
+- Project memory system for storing commands, configs, and notes that persist across sessions
+- Task management system for tracking work across multiple sessions
+- `project_memory` table for project-scoped memory storage
+- `tasks` table for simple todo/done task tracking
+- `context_memory_save` tool - Save project memory (command, config, or note)
+- `context_memory_get` tool - Retrieve memory by key
+- `context_memory_list` tool - List all memory for current project
+- `context_memory_delete` tool - Delete memory item
+- `context_task_create` tool - Create a new task
+- `context_task_update` tool - Update task title, description, or status
+- `context_task_list` tool - List tasks with optional status filter
+- `context_task_complete` tool - Quick mark task as done
+- Database methods: `saveMemory`, `getMemory`, `listMemory`, `deleteMemory`, `createTask`, `updateTask`, `listTasks`, `completeTask`, `deleteTask`
+
+### Changed
+- Tool count increased from 19 to 27 (8 new tools)
+- Memory uses INSERT OR REPLACE for simple overwrite behavior on duplicate keys
+
 ## [0.1.2] - 2025-11-06
 
 ### Added

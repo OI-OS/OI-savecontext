@@ -217,3 +217,63 @@ FROM sessions s
 LEFT JOIN context_items ci ON s.id = ci.session_id
 LEFT JOIN checkpoints cp ON s.id = cp.session_id
 GROUP BY s.id;
+
+-- ====================
+-- Multi-Agent Support (v0.1.2)
+-- ====================
+
+-- Agent Sessions: Track which agent is currently working on each session
+-- Enables multiple terminal instances to work simultaneously
+CREATE TABLE IF NOT EXISTS agent_sessions (
+  agent_id TEXT PRIMARY KEY,               -- Format: {projectName}-{branch}-{provider}
+  session_id TEXT NOT NULL,
+  project_path TEXT NOT NULL,              -- Full project path
+  git_branch TEXT,                         -- Git branch name
+  provider TEXT,                           -- MCP client provider (claude-code, factory-ai, cursor, etc.)
+  last_active_at INTEGER NOT NULL,         -- Timestamp of last activity
+
+  FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_session
+  ON agent_sessions(session_id);
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_project
+  ON agent_sessions(project_path);
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_active
+  ON agent_sessions(last_active_at DESC);
+
+-- ====================
+-- Project Memory & Tasks (v0.1.3)
+-- ====================
+
+-- Project Memory: Store project-specific commands, configs, and notes
+-- UNIQUE constraint on (project_path, key) enables UPSERT behavior
+CREATE TABLE IF NOT EXISTS project_memory (
+  id TEXT PRIMARY KEY,
+  project_path TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  category TEXT DEFAULT 'command',         -- command, config, note
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+
+  UNIQUE(project_path, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_project ON project_memory(project_path);
+CREATE INDEX IF NOT EXISTS idx_memory_category ON project_memory(category);
+
+-- Tasks: Simple task management with todo/done status
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  project_path TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'todo',              -- todo, done
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_path);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);

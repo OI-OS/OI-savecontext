@@ -629,6 +629,175 @@ export class DatabaseManager {
     return this.getContextItem(sessionId, key);
   }
 
+  // ==========================
+  // Project Memory Operations
+  // ==========================
+
+  saveMemory(projectPath: string, key: string, value: string, category: string = 'command'): { id: string; key: string } {
+    const now = Date.now();
+    const id = this.generateId();
+
+    const stmt = this.db.prepare(`
+      INSERT INTO project_memory (id, project_path, key, value, category, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(project_path, key) DO UPDATE SET
+        value = excluded.value,
+        category = excluded.category,
+        updated_at = excluded.updated_at
+    `);
+
+    stmt.run(id, projectPath, key, value, category, now, now);
+    return { id, key };
+  }
+
+  getMemory(projectPath: string, key: string): { key: string; value: string; category: string } | null {
+    const stmt = this.db.prepare(`
+      SELECT key, value, category FROM project_memory
+      WHERE project_path = ? AND key = ?
+    `);
+    return stmt.get(projectPath, key) as { key: string; value: string; category: string } | null;
+  }
+
+  listMemory(projectPath: string, category?: string): Array<{ key: string; value: string; category: string; created_at: number }> {
+    let query = `
+      SELECT key, value, category, created_at FROM project_memory
+      WHERE project_path = ?
+    `;
+    const params: any[] = [projectPath];
+
+    if (category) {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const stmt = this.db.prepare(query);
+    return stmt.all(...params) as Array<{ key: string; value: string; category: string; created_at: number }>;
+  }
+
+  deleteMemory(projectPath: string, key: string): boolean {
+    const stmt = this.db.prepare(`
+      DELETE FROM project_memory WHERE project_path = ? AND key = ?
+    `);
+    const result = stmt.run(projectPath, key);
+    return result.changes > 0;
+  }
+
+  // ================
+  // Task Operations
+  // ================
+
+  createTask(projectPath: string, title: string, description?: string): { id: string; title: string } {
+    const now = Date.now();
+    const id = this.generateId();
+
+    const stmt = this.db.prepare(`
+      INSERT INTO tasks (id, project_path, title, description, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'todo', ?, ?)
+    `);
+
+    stmt.run(id, projectPath, title, description || null, now, now);
+    return { id, title };
+  }
+
+  updateTask(taskId: string, updates: {
+    title?: string;
+    description?: string;
+    status?: string;
+  }): boolean {
+    const fields: string[] = [];
+    const params: any[] = [];
+
+    if (updates.title !== undefined) {
+      fields.push('title = ?');
+      params.push(updates.title);
+    }
+
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      params.push(updates.description);
+    }
+
+    if (updates.status !== undefined) {
+      fields.push('status = ?');
+      params.push(updates.status);
+
+      if (updates.status === 'done') {
+        fields.push('completed_at = ?');
+        params.push(Date.now());
+      }
+    }
+
+    if (fields.length === 0) {
+      return false;
+    }
+
+    fields.push('updated_at = ?');
+    params.push(Date.now());
+    params.push(taskId);
+
+    const stmt = this.db.prepare(`
+      UPDATE tasks SET ${fields.join(', ')}
+      WHERE id = ?
+    `);
+
+    const result = stmt.run(...params);
+    return result.changes > 0;
+  }
+
+  listTasks(projectPath: string, status?: string): Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    status: string;
+    created_at: number;
+    updated_at: number;
+    completed_at: number | null;
+  }> {
+    let query = `
+      SELECT id, title, description, status, created_at, updated_at, completed_at
+      FROM tasks
+      WHERE project_path = ?
+    `;
+    const params: any[] = [projectPath];
+
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const stmt = this.db.prepare(query);
+    return stmt.all(...params) as Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      status: string;
+      created_at: number;
+      updated_at: number;
+      completed_at: number | null;
+    }>;
+  }
+
+  completeTask(taskId: string): boolean {
+    const now = Date.now();
+    const stmt = this.db.prepare(`
+      UPDATE tasks
+      SET status = 'done', completed_at = ?, updated_at = ?
+      WHERE id = ?
+    `);
+    const result = stmt.run(now, now, taskId);
+    return result.changes > 0;
+  }
+
+  deleteTask(taskId: string): boolean {
+    const stmt = this.db.prepare(`DELETE FROM tasks WHERE id = ?`);
+    const result = stmt.run(taskId);
+    return result.changes > 0;
+  }
+
   // ======================
   // Checkpoint Operations
   // ======================

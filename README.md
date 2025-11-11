@@ -652,20 +652,124 @@ Returns:
 **context_checkpoint**
 ```javascript
 {
-  name: string,           // Required: checkpoint name
-  description?: string,   // Optional: checkpoint description
-  include_git?: boolean   // Default: false
+  name: string,                    // Required: checkpoint name
+  description?: string,            // Optional: checkpoint description
+  include_git?: boolean,           // Default: false
+  // Filtering options for selective checkpoints:
+  include_tags?: string[],         // Only include items with these tags
+  include_keys?: string[],         // Only include keys matching patterns (e.g., ["feature_*"])
+  include_categories?: string[],   // Only include these categories
+  exclude_tags?: string[]          // Exclude items with these tags
 }
 ```
-Creates a named checkpoint of the current session state. If `include_git` is true, captures git branch and working tree status.
+Creates a named checkpoint of the current session state. Supports selective checkpoints via filters. If `include_git` is true, captures git branch and working tree status.
 
 **context_restore**
 ```javascript
 {
-  checkpoint_id: string  // Required: checkpoint ID to restore
+  checkpoint_id: string,           // Required: checkpoint ID to restore
+  // Filtering options for selective restoration:
+  restore_tags?: string[],         // Only restore items with these tags
+  restore_categories?: string[]    // Only restore items in these categories
 }
 ```
-Restores all context items from a checkpoint into the current session.
+Restores context items from a checkpoint into the current session. Supports selective restoration via filters.
+
+**context_tag**
+```javascript
+{
+  keys?: string[],          // Specific item keys to tag
+  key_pattern?: string,     // Wildcard pattern (e.g., "feature_*")
+  tags: string[],           // Required: tags to add/remove
+  action: 'add' | 'remove'  // Required: add or remove tags
+}
+```
+Tag context items for organization and filtering. Supports tagging by specific keys or wildcard patterns. Use to organize work streams and enable selective checkpoint creation.
+
+**context_checkpoint_add_items**
+```javascript
+{
+  checkpoint_id: string,   // Required: checkpoint to modify
+  item_keys: string[]      // Required: keys of items to add
+}
+```
+Add items to an existing checkpoint. Use to incrementally build up checkpoints or add items you forgot to include.
+
+**context_checkpoint_remove_items**
+```javascript
+{
+  checkpoint_id: string,   // Required: checkpoint to modify
+  item_keys: string[]      // Required: keys of items to remove
+}
+```
+Remove items from an existing checkpoint. Use to fix checkpoints that contain unwanted items or to clean up mixed work streams.
+
+**context_checkpoint_split**
+```javascript
+{
+  source_checkpoint_id: string,  // Required: checkpoint to split
+  splits: [                      // Required: split configurations
+    {
+      name: string,              // Required: name for new checkpoint
+      description?: string,      // Optional: description
+      include_tags?: string[],   // Filter by tags
+      include_categories?: string[]  // Filter by categories
+    }
+  ]
+}
+```
+Split a checkpoint into multiple checkpoints based on tags or categories. Use to separate mixed work streams into organized checkpoints.
+
+**Workflow Example: Splitting a Mixed Checkpoint**
+```javascript
+// Step 1: Get checkpoint details to see all items
+context_get_checkpoint({ checkpoint_id: "ckpt_abc123" })
+// Returns: { items_preview: [
+//   { key: "auth_decision", ... },
+//   { key: "ui_component", ... },
+//   { key: "auth_impl", ... }
+// ]}
+
+// Step 2: Tag items by work stream (use specific keys, not patterns)
+context_tag({
+  keys: ["auth_decision", "auth_impl"],
+  tags: ["auth"],
+  action: "add"
+})
+
+context_tag({
+  keys: ["ui_component"],
+  tags: ["ui"],
+  action: "add"
+})
+
+// Step 3: Split checkpoint using tags
+context_checkpoint_split({
+  source_checkpoint_id: "ckpt_abc123",
+  splits: [
+    {
+      name: "auth-work",
+      include_tags: ["auth"]  // REQUIRED: must have filters
+    },
+    {
+      name: "ui-work",
+      include_tags: ["ui"]    // REQUIRED: must have filters
+    }
+  ]
+})
+// Returns warnings if item counts look wrong (0 items or all items)
+
+// Step 4: Delete original mixed checkpoint
+context_checkpoint_delete({ checkpoint_id: "ckpt_abc123" })
+```
+
+**context_checkpoint_delete**
+```javascript
+{
+  checkpoint_id: string  // Required: checkpoint to delete
+}
+```
+Delete a checkpoint permanently. Use to clean up failed, duplicate, or unwanted checkpoints. Cannot be undone.
 
 **context_list_checkpoints**
 ```javascript

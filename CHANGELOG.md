@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 ## Historical Note
 Versions 0.1.0-0.1.2 were development releases with package.json version mismatches. v0.1.3 is the first npm-published release.
 
+## [0.1.4] - 2025-11-10
+
+### Added
+- **Checkpoint Grouping & Management System** - Organize context items and create selective checkpoints
+- `tags` field on context_items for flexible item organization
+- `context_tag` tool - Tag items by specific keys or wildcard patterns (e.g., "feature_*")
+- **Selective Checkpoint Creation** - Filter checkpoints by tags, keys, categories, or exclude specific tags
+- **Selective Restoration** - Restore only tagged items or specific categories from checkpoints
+- `context_checkpoint_add_items` tool - Add items to existing checkpoints
+- `context_checkpoint_remove_items` tool - Remove items from checkpoints to fix mixed work streams
+- `context_checkpoint_split` tool - Split mixed checkpoints into organized separate checkpoints
+- `context_checkpoint_delete` tool - Delete checkpoints permanently to clean up failed or duplicate checkpoints
+- Database methods: `tagContextItems()`, `addItemsToCheckpoint()`, `removeItemsFromCheckpoint()`, `splitCheckpoint()`, `deleteCheckpoint()`
+- Enhanced `createCheckpoint()` with filter support (include_tags, include_keys, include_categories, exclude_tags)
+- Enhanced `restoreCheckpoint()` with filter support (restore_tags, restore_categories)
+- Migration 005: Added tags column and checkpoint grouping metadata
+
+### Changed
+- `context_checkpoint` tool now supports filter parameters for selective checkpoints
+- `context_restore` tool now supports filter parameters for selective restoration
+- `context_checkpoint_split` now requires filters and validates results to prevent agent errors
+- `context_checkpoint_split` returns warnings if splits have 0 items or all items (likely misconfigured filters)
+- Tool descriptions enhanced with required workflows and examples to prevent common mistakes
+- Tool count increased from 27 to 32 (5 new tools)
+- Updated validation for all new tool parameters
+
+### Use Cases
+- **Separate Work Streams**: Tag items by project area (e.g., "auth", "ui", "api") and create focused checkpoints
+- **Fix Mixed Checkpoints**: Remove unwanted items or split messy checkpoints into organized ones
+- **Selective Restoration**: Restore only high-priority items or specific work streams
+- **Incremental Checkpoints**: Add forgotten items to existing checkpoints
+
 ## [0.1.3] - 2025-11-08
 
 ### Added

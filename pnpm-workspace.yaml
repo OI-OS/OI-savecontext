@@ -1,5 +1,2 @@
 packages:
   - 'server'
-  - 'cli'
-  - 'db'
-  - 'app'

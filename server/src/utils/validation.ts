@@ -9,6 +9,9 @@ import {
   CreateSessionArgs,
   CreateCheckpointArgs,
   RestoreCheckpointArgs,
+  TagContextItemsArgs,
+  CheckpointItemManagementArgs,
+  CheckpointSplitArgs,
   ValidationError,
   ItemCategory,
   ItemPriority,
@@ -213,7 +216,7 @@ export function validateCreateCheckpoint(args: any): CreateCheckpointArgs {
     throw new ValidationError('Invalid arguments: must be an object');
   }
 
-  const { name, description, include_git } = args;
+  const { name, description, include_git, include_tags, include_keys, include_categories, exclude_tags } = args;
 
   // Name is required
   if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -238,10 +241,38 @@ export function validateCreateCheckpoint(args: any): CreateCheckpointArgs {
     throw new ValidationError('include_git must be a boolean');
   }
 
+  // Validate filter arrays
+  if (include_tags !== undefined && !Array.isArray(include_tags)) {
+    throw new ValidationError('include_tags must be an array');
+  }
+
+  if (include_keys !== undefined && !Array.isArray(include_keys)) {
+    throw new ValidationError('include_keys must be an array');
+  }
+
+  if (include_categories !== undefined) {
+    if (!Array.isArray(include_categories)) {
+      throw new ValidationError('include_categories must be an array');
+    }
+    for (const cat of include_categories) {
+      if (!VALID_CATEGORIES.includes(cat as ItemCategory)) {
+        throw new ValidationError(`include_categories contains invalid category: ${cat}`);
+      }
+    }
+  }
+
+  if (exclude_tags !== undefined && !Array.isArray(exclude_tags)) {
+    throw new ValidationError('exclude_tags must be an array');
+  }
+
   return {
     name: name.trim(),
     description: description?.trim(),
     include_git,
+    include_tags,
+    include_keys,
+    include_categories: include_categories as ItemCategory[] | undefined,
+    exclude_tags,
   };
 }
 
@@ -249,6 +280,155 @@ export function validateCreateCheckpoint(args: any): CreateCheckpointArgs {
  * Validate checkpoint restoration arguments
  */
 export function validateRestoreCheckpoint(args: any): RestoreCheckpointArgs {
+  if (!args || typeof args !== 'object') {
+    throw new ValidationError('Invalid arguments: must be an object');
+  }
+
+  const { checkpoint_id, restore_tags, restore_categories } = args;
+
+  if (!checkpoint_id || typeof checkpoint_id !== 'string') {
+    throw new ValidationError('checkpoint_id is required and must be a string');
+  }
+
+  // Validate filter arrays
+  if (restore_tags !== undefined && !Array.isArray(restore_tags)) {
+    throw new ValidationError('restore_tags must be an array');
+  }
+
+  if (restore_categories !== undefined) {
+    if (!Array.isArray(restore_categories)) {
+      throw new ValidationError('restore_categories must be an array');
+    }
+    for (const cat of restore_categories) {
+      if (!VALID_CATEGORIES.includes(cat as ItemCategory)) {
+        throw new ValidationError(`restore_categories contains invalid category: ${cat}`);
+      }
+    }
+  }
+
+  return {
+    checkpoint_id: checkpoint_id.trim(),
+    restore_tags,
+    restore_categories: restore_categories as ItemCategory[] | undefined,
+  };
+}
+
+/**
+ * Validate tag context items arguments
+ */
+export function validateTagContextItems(args: any): TagContextItemsArgs {
+  if (!args || typeof args !== 'object') {
+    throw new ValidationError('Invalid arguments: must be an object');
+  }
+
+  const { keys, key_pattern, tags, action } = args;
+
+  // Must have either keys or key_pattern
+  if (!keys && !key_pattern) {
+    throw new ValidationError('Either keys or key_pattern is required');
+  }
+
+  if (keys !== undefined && !Array.isArray(keys)) {
+    throw new ValidationError('keys must be an array');
+  }
+
+  if (key_pattern !== undefined && typeof key_pattern !== 'string') {
+    throw new ValidationError('key_pattern must be a string');
+  }
+
+  // tags is required
+  if (!tags || !Array.isArray(tags) || tags.length === 0) {
+    throw new ValidationError('tags is required and must be a non-empty array');
+  }
+
+  // action is required
+  if (!action || (action !== 'add' && action !== 'remove')) {
+    throw new ValidationError('action is required and must be "add" or "remove"');
+  }
+
+  return {
+    keys,
+    key_pattern: key_pattern?.trim(),
+    tags,
+    action,
+  };
+}
+
+/**
+ * Validate checkpoint item management arguments
+ */
+export function validateCheckpointItemManagement(args: any): CheckpointItemManagementArgs {
+  if (!args || typeof args !== 'object') {
+    throw new ValidationError('Invalid arguments: must be an object');
+  }
+
+  const { checkpoint_id, item_keys } = args;
+
+  if (!checkpoint_id || typeof checkpoint_id !== 'string') {
+    throw new ValidationError('checkpoint_id is required and must be a string');
+  }
+
+  if (!item_keys || !Array.isArray(item_keys) || item_keys.length === 0) {
+    throw new ValidationError('item_keys is required and must be a non-empty array');
+  }
+
+  return {
+    checkpoint_id: checkpoint_id.trim(),
+    item_keys,
+  };
+}
+
+/**
+ * Validate checkpoint split arguments
+ */
+export function validateCheckpointSplit(args: any): CheckpointSplitArgs {
+  if (!args || typeof args !== 'object') {
+    throw new ValidationError('Invalid arguments: must be an object');
+  }
+
+  const { source_checkpoint_id, splits } = args;
+
+  if (!source_checkpoint_id || typeof source_checkpoint_id !== 'string') {
+    throw new ValidationError('source_checkpoint_id is required and must be a string');
+  }
+
+  if (!splits || !Array.isArray(splits) || splits.length === 0) {
+    throw new ValidationError('splits is required and must be a non-empty array');
+  }
+
+  // Validate each split
+  for (const split of splits) {
+    if (!split.name || typeof split.name !== 'string') {
+      throw new ValidationError('Each split must have a name (string)');
+    }
+
+    if (split.description !== undefined && typeof split.description !== 'string') {
+      throw new ValidationError('Split description must be a string');
+    }
+
+    if (split.include_tags !== undefined && !Array.isArray(split.include_tags)) {
+      throw new ValidationError('Split include_tags must be an array');
+    }
+
+    if (split.include_categories !== undefined) {
+      if (!Array.isArray(split.include_categories)) {
+        throw new ValidationError('Split include_categories must be an array');
+      }
+      for (const cat of split.include_categories) {
+        if (!VALID_CATEGORIES.includes(cat as ItemCategory)) {
+          throw new ValidationError(`Split include_categories contains invalid category: ${cat}`);
+        }
+      }
+    }
+  }
+
+  return {
+    source_checkpoint_id: source_checkpoint_id.trim(),
+    splits,
+  };
+}
+
+export function validateDeleteCheckpoint(args: any): { checkpoint_id: string } {
   if (!args || typeof args !== 'object') {
     throw new ValidationError('Invalid arguments: must be an object');
   }

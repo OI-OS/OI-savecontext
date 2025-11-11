@@ -24,6 +24,10 @@ import {
   validateGetContext,
   validateCreateCheckpoint,
   validateRestoreCheckpoint,
+  validateTagContextItems,
+  validateCheckpointItemManagement,
+  validateCheckpointSplit,
+  validateDeleteCheckpoint,
 } from './utils/validation.js';
 import {
   SessionError,
@@ -329,6 +333,7 @@ async function handleSaveContext(args: any) {
       category: validated.category || 'note',
       priority: validated.priority || 'normal',
       channel: normalizeChannel(channel),
+      tags: '[]',
       size: validated.key.length + validated.value.length,
     });
 
@@ -744,13 +749,18 @@ async function handleCreateCheckpoint(args: any) {
       }
     }
 
-    // Create checkpoint
+    // Create checkpoint with optional filters
     const checkpoint = db.createCheckpoint({
       session_id: sessionId,
       name: validated.name,
       description: validated.description,
       git_status,
       git_branch,
+    }, {
+      include_tags: validated.include_tags,
+      include_keys: validated.include_keys,
+      include_categories: validated.include_categories,
+      exclude_tags: validated.exclude_tags,
     });
 
     // Update agent activity timestamp
@@ -890,6 +900,7 @@ async function handlePrepareCompaction() {
       category: 'progress',
       priority: 'high',
       channel: 'system',
+      tags: '[]',
       size: summaryValue.length,
     });
 
@@ -919,15 +930,221 @@ async function handleRestoreCheckpoint(args: any) {
       );
     }
 
-    // Restore items
-    const restored = db.restoreCheckpoint(validated.checkpoint_id, sessionId);
+    // Restore items with optional filters
+    const restored = db.restoreCheckpoint(validated.checkpoint_id, sessionId, {
+      restore_tags: validated.restore_tags,
+      restore_categories: validated.restore_categories,
+    });
+
+    const filterMsg = validated.restore_tags || validated.restore_categories
+      ? ' (filtered)'
+      : '';
 
     return success(
       { restored_items: restored, checkpoint_name: checkpoint.name },
-      `Restored ${restored} items from checkpoint '${checkpoint.name}'`
+      `Restored ${restored} items from checkpoint '${checkpoint.name}'${filterMsg}`
     );
   } catch (err) {
     return error('Failed to restore checkpoint', err);
+  }
+}
+
+/**
+ * Tag context items for organization and filtering
+ */
+async function handleTagContextItems(args: any) {
+  try {
+    const sessionId = ensureSession();
+    const validated = validateTagContextItems(args);
+
+    const updated = db.tagContextItems(sessionId, {
+      keys: validated.keys,
+      key_pattern: validated.key_pattern,
+      tags: validated.tags,
+      action: validated.action,
+    });
+
+    // Update agent activity timestamp
+    await updateAgentActivity();
+
+    const actionMsg = validated.action === 'add' ? 'Tagged' : 'Untagged';
+    const targetMsg = validated.keys
+      ? `${validated.keys.length} items`
+      : `items matching '${validated.key_pattern}'`;
+
+    return success(
+      { updated_count: updated, tags: validated.tags },
+      `${actionMsg} ${updated} ${targetMsg} with tags: ${validated.tags.join(', ')}`
+    );
+  } catch (err) {
+    return error('Failed to tag context items', err);
+  }
+}
+
+/**
+ * Add items to an existing checkpoint
+ */
+async function handleAddItemsToCheckpoint(args: any) {
+  try {
+    const sessionId = ensureSession();
+    const validated = validateCheckpointItemManagement(args);
+
+    // Verify checkpoint exists
+    const checkpoint = db.getCheckpoint(validated.checkpoint_id);
+    if (!checkpoint) {
+      throw new SaveContextError(
+        `Checkpoint '${validated.checkpoint_id}' not found`,
+        'NOT_FOUND'
+      );
+    }
+
+    const added = db.addItemsToCheckpoint(
+      validated.checkpoint_id,
+      sessionId,
+      validated.item_keys
+    );
+
+    // Update agent activity timestamp
+    await updateAgentActivity();
+
+    return success(
+      { added_count: added, checkpoint_name: checkpoint.name },
+      `Added ${added} items to checkpoint '${checkpoint.name}'`
+    );
+  } catch (err) {
+    return error('Failed to add items to checkpoint', err);
+  }
+}
+
+/**
+ * Remove items from an existing checkpoint
+ */
+async function handleRemoveItemsFromCheckpoint(args: any) {
+  try {
+    const sessionId = ensureSession();
+    const validated = validateCheckpointItemManagement(args);
+
+    // Verify checkpoint exists
+    const checkpoint = db.getCheckpoint(validated.checkpoint_id);
+    if (!checkpoint) {
+      throw new SaveContextError(
+        `Checkpoint '${validated.checkpoint_id}' not found`,
+        'NOT_FOUND'
+      );
+    }
+
+    const removed = db.removeItemsFromCheckpoint(
+      validated.checkpoint_id,
+      sessionId,
+      validated.item_keys
+    );
+
+    // Update agent activity timestamp
+    await updateAgentActivity();
+
+    return success(
+      { removed_count: removed, checkpoint_name: checkpoint.name },
+      `Removed ${removed} items from checkpoint '${checkpoint.name}'`
+    );
+  } catch (err) {
+    return error('Failed to remove items from checkpoint', err);
+  }
+}
+
+/**
+ * Split a checkpoint into multiple checkpoints based on filters
+ */
+async function handleSplitCheckpoint(args: any) {
+  try {
+    ensureSession();
+    const validated = validateCheckpointSplit(args);
+
+    // Verify source checkpoint exists
+    const sourceCheckpoint = db.getCheckpoint(validated.source_checkpoint_id);
+    if (!sourceCheckpoint) {
+      throw new SaveContextError(
+        `Source checkpoint '${validated.source_checkpoint_id}' not found`,
+        'NOT_FOUND'
+      );
+    }
+
+    // Warn if no filters provided
+    const hasFilters = validated.splits.some(
+      split => (split.include_tags && split.include_tags.length > 0) ||
+               (split.include_categories && split.include_categories.length > 0)
+    );
+
+    if (!hasFilters) {
+      return error(
+        'Split requires filters',
+        new ValidationError('At least one split must have include_tags or include_categories. Without filters, all items will be duplicated to every checkpoint.')
+      );
+    }
+
+    const newCheckpoints = db.splitCheckpoint(
+      validated.source_checkpoint_id,
+      validated.splits
+    );
+
+    // Warn if any splits resulted in 0 items or same count as source
+    const warnings: string[] = [];
+    for (const cp of newCheckpoints) {
+      if (cp.item_count === 0) {
+        warnings.push(`⚠️  Checkpoint '${cp.name}' has 0 items - check your tag/category filters`);
+      } else if (cp.item_count === sourceCheckpoint.item_count) {
+        warnings.push(`⚠️  Checkpoint '${cp.name}' has ALL ${cp.item_count} items from source - filters may not be working`);
+      }
+    }
+
+    // Update agent activity timestamp
+    await updateAgentActivity();
+
+    return success(
+      {
+        source_checkpoint: sourceCheckpoint.name,
+        new_checkpoints: newCheckpoints.map(cp => ({
+          id: cp.id,
+          name: cp.name,
+          item_count: cp.item_count,
+        })),
+        warnings: warnings.length > 0 ? warnings : undefined,
+      },
+      `Split checkpoint '${sourceCheckpoint.name}' into ${newCheckpoints.length} new checkpoints${warnings.length > 0 ? '\n' + warnings.join('\n') : ''}`
+    );
+  } catch (err) {
+    return error('Failed to split checkpoint', err);
+  }
+}
+
+async function handleDeleteCheckpoint(args: any) {
+  try {
+    ensureSession();
+    const validated = validateDeleteCheckpoint(args);
+
+    // Verify checkpoint exists
+    const checkpoint = db.getCheckpoint(validated.checkpoint_id);
+    if (!checkpoint) {
+      throw new SaveContextError(
+        `Checkpoint '${validated.checkpoint_id}' not found`,
+        'NOT_FOUND'
+      );
+    }
+
+    const deleted = db.deleteCheckpoint(validated.checkpoint_id);
+
+    if (!deleted) {
+      throw new SaveContextError('Failed to delete checkpoint', 'DELETE_FAILED');
+    }
+
+    // Update agent activity timestamp
+    await updateAgentActivity();
+
+    return success(
+      { checkpoint_id: validated.checkpoint_id, checkpoint_name: checkpoint.name },
+      `Deleted checkpoint '${checkpoint.name}'`
+    );
+  } catch (err) {
+    return error('Failed to delete checkpoint', err);
   }
 }
 
@@ -1780,7 +1997,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: 'context_checkpoint',
-        description: 'Create named checkpoint snapshot for manual saves. Use before major refactors, git branch switches, or experimental changes. For auto-save before context fills up, use context_prepare_compaction instead.',
+        description: 'Create named checkpoint snapshot for manual saves. Supports selective checkpoints via filters. Use before major refactors, git branch switches, or experimental changes. For auto-save before context fills up, use context_prepare_compaction instead.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1796,19 +2013,181 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'boolean',
               description: 'Include git status in checkpoint (default: false)',
             },
+            include_tags: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Only include items with these tags',
+            },
+            include_keys: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Only include items matching these key patterns (supports wildcards like "feature_*")',
+            },
+            include_categories: {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['task', 'decision', 'progress', 'note'],
+              },
+              description: 'Only include items in these categories',
+            },
+            exclude_tags: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Exclude items with these tags',
+            },
           },
           required: ['name'],
         },
       },
       {
         name: 'context_restore',
-        description: 'Restore session state from checkpoint. Use to continue previous work, recover from mistakes, or restore after context compaction. Restores all context items to current session.',
+        description: 'Restore session state from checkpoint. Supports selective restoration via filters. Use to continue previous work, recover from mistakes, or restore after context compaction.',
         inputSchema: {
           type: 'object',
           properties: {
             checkpoint_id: {
               type: 'string',
               description: 'ID of checkpoint to restore',
+            },
+            restore_tags: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Only restore items with these tags',
+            },
+            restore_categories: {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['task', 'decision', 'progress', 'note'],
+              },
+              description: 'Only restore items in these categories',
+            },
+          },
+          required: ['checkpoint_id'],
+        },
+      },
+      {
+        name: 'context_tag',
+        description: 'Tag context items for organization and filtering. Supports tagging by specific keys or wildcard patterns. MUST be used before context_checkpoint_split to tag items by work stream (e.g., tag auth items with "auth", UI items with "ui"). Use context_get to verify items and their keys first, then tag by specific keys (not patterns) for accuracy.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            keys: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Specific item keys to tag',
+            },
+            key_pattern: {
+              type: 'string',
+              description: 'Wildcard pattern to match keys (e.g., "feature_*")',
+            },
+            tags: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Tags to add or remove',
+            },
+            action: {
+              type: 'string',
+              enum: ['add', 'remove'],
+              description: 'Whether to add or remove the tags',
+            },
+          },
+          required: ['tags', 'action'],
+        },
+      },
+      {
+        name: 'context_checkpoint_add_items',
+        description: 'Add items to an existing checkpoint. Use to incrementally build up checkpoints or add items you forgot to include.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            checkpoint_id: {
+              type: 'string',
+              description: 'ID of the checkpoint to modify',
+            },
+            item_keys: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Keys of items to add to the checkpoint',
+            },
+          },
+          required: ['checkpoint_id', 'item_keys'],
+        },
+      },
+      {
+        name: 'context_checkpoint_remove_items',
+        description: 'Remove items from an existing checkpoint. Use to fix checkpoints that contain unwanted items or to clean up mixed work streams.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            checkpoint_id: {
+              type: 'string',
+              description: 'ID of the checkpoint to modify',
+            },
+            item_keys: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Keys of items to remove from the checkpoint',
+            },
+          },
+          required: ['checkpoint_id', 'item_keys'],
+        },
+      },
+      {
+        name: 'context_checkpoint_split',
+        description: 'Split a checkpoint into multiple checkpoints based on tags or categories. REQUIRED WORKFLOW: (1) Use context_get_checkpoint to see all items, (2) Use context_tag to tag items by work stream (e.g., "auth", "ui"), (3) Then split using include_tags for each work stream. Each split MUST have include_tags or include_categories - the tool will ERROR if no filters provided. Verify results show expected item counts.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            source_checkpoint_id: {
+              type: 'string',
+              description: 'ID of the checkpoint to split',
+            },
+            splits: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: {
+                    type: 'string',
+                    description: 'Name for the new checkpoint',
+                  },
+                  description: {
+                    type: 'string',
+                    description: 'Optional description',
+                  },
+                  include_tags: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Only include items with these tags',
+                  },
+                  include_categories: {
+                    type: 'array',
+                    items: {
+                      type: 'string',
+                      enum: ['task', 'decision', 'progress', 'note'],
+                    },
+                    description: 'Only include items in these categories',
+                  },
+                },
+                required: ['name'],
+              },
+              description: 'Array of split configurations',
+            },
+          },
+          required: ['source_checkpoint_id', 'splits'],
+        },
+      },
+      {
+        name: 'context_checkpoint_delete',
+        description: 'Delete a checkpoint permanently. Use to clean up failed, duplicate, or unwanted checkpoints. Cannot be undone.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            checkpoint_id: {
+              type: 'string',
+              description: 'ID of the checkpoint to delete',
             },
           },
           required: ['checkpoint_id'],
@@ -2029,6 +2408,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: 'text', text: JSON.stringify(await handlePrepareCompaction(), null, 2) }] };
       case 'context_restore':
         return { content: [{ type: 'text', text: JSON.stringify(await handleRestoreCheckpoint(args), null, 2) }] };
+      case 'context_tag':
+        return { content: [{ type: 'text', text: JSON.stringify(await handleTagContextItems(args), null, 2) }] };
+      case 'context_checkpoint_add_items':
+        return { content: [{ type: 'text', text: JSON.stringify(await handleAddItemsToCheckpoint(args), null, 2) }] };
+      case 'context_checkpoint_remove_items':
+        return { content: [{ type: 'text', text: JSON.stringify(await handleRemoveItemsFromCheckpoint(args), null, 2) }] };
+      case 'context_checkpoint_split':
+        return { content: [{ type: 'text', text: JSON.stringify(await handleSplitCheckpoint(args), null, 2) }] };
+      case 'context_checkpoint_delete':
+        return { content: [{ type: 'text', text: JSON.stringify(await handleDeleteCheckpoint(args), null, 2) }] };
       case 'context_list_checkpoints':
         return { content: [{ type: 'text', text: JSON.stringify(await handleListCheckpoints(args), null, 2) }] };
       case 'context_get_checkpoint':

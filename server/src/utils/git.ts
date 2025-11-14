@@ -18,6 +18,7 @@ export interface GitStatus {
   untracked: string[];
   ahead: number;
   behind: number;
+  staged_diff?: string;
 }
 
 /**
@@ -94,6 +95,25 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
       // No upstream or not tracking
     }
 
+    // Capture staged diff (intentional changes user has git added to staging area)
+    let staged_diff: string | undefined;
+    try {
+      const { stdout: diff } = await execAsync('git diff --cached', {
+        cwd: cwd || process.cwd(),
+      });
+
+      if (diff.trim()) {
+        const MAX_DIFF_SIZE = 50000; // 50KB limit
+        if (diff.length > MAX_DIFF_SIZE) {
+          staged_diff = `[Diff truncated: ${diff.length} bytes total]\n${diff.substring(0, MAX_DIFF_SIZE)}`;
+        } else {
+          staged_diff = diff;
+        }
+      }
+    } catch {
+      // No staged changes or git not available
+    }
+
     return {
       branch,
       modified,
@@ -102,6 +122,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
       untracked,
       ahead,
       behind,
+      staged_diff,
     };
   } catch {
     return null;

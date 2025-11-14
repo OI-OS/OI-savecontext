@@ -99,7 +99,7 @@ SaveContext can be configured via environment variables in your MCP server setti
 
 #### Compaction Settings
 
-> **EXPERIMENTAL FEATURE**: Compaction configuration only validated with Claude Code - requires CLI restart when env vars change. Other MCP clients may not support the instructions field.
+> ⚠️ **EXPERIMENTAL FEATURE**: Compaction configuration only validated with Claude Code - requires CLI restart when env vars change. Other MCP clients may not support the instructions field.
 
 Control when and how SaveContext preserves context before your conversation window fills up:
 

@@ -93,6 +93,46 @@ Edit your config file at:
 
 The server communicates via stdio using the MCP protocol.
 
+### Advanced Configuration
+
+SaveContext can be configured via environment variables in your MCP server settings to control compaction behavior.
+
+#### Compaction Settings
+
+> **EXPERIMENTAL FEATURE**: Compaction configuration only validated with Claude Code - requires CLI restart when env vars change. Other MCP clients may not support the instructions field.
+
+Control when and how SaveContext preserves context before your conversation window fills up:
+
+```json
+{
+  "mcpServers": {
+    "savecontext": {
+      "command": "npx",
+      "args": ["-y", "@savecontext/mcp"],
+      "env": {
+        "SAVECONTEXT_COMPACTION_THRESHOLD": "70",
+        "SAVECONTEXT_COMPACTION_MODE": "remind"
+      }
+    }
+  }
+}
+```
+
+**`SAVECONTEXT_COMPACTION_THRESHOLD`** (default: `70`)
+- Context usage percentage (50-90) that triggers compaction behavior
+- When conversation reaches this % of context window, compaction activates
+- Lower values = more frequent compaction, higher values = longer conversations before compaction
+
+**`SAVECONTEXT_COMPACTION_MODE`** (default: `remind`)
+- `auto` - Automatically calls `context_prepare_compaction` at threshold (no user interaction needed)
+- `remind` - AI suggests compaction to user and explains what will be preserved
+- `manual` - Only compacts when user explicitly requests it
+
+**Recommended Settings:**
+- Long technical sessions: `threshold=70, mode=auto`
+- Pair programming: `threshold=80, mode=remind`
+- Short tasks: `threshold=90, mode=manual`
+
 ## Architecture
 
 ### Server Implementation

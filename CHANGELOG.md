@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 ## Historical Note
 Versions 0.1.0-0.1.2 were development releases with package.json version mismatches. v0.1.3 is the first npm-published release.
 
+## [0.1.5] - 2025-11-14
+
+### Added (EXPERIMENTAL)
+- **User-configurable compaction behavior** via environment variables
+  - `SAVECONTEXT_COMPACTION_THRESHOLD` (50-90%, default: 70%)
+  - `SAVECONTEXT_COMPACTION_MODE` (auto/remind/manual, default: remind)
+  - Dynamic AI instruction generation injected into system prompt via MCP protocol
+  - Only validated with Claude Code - requires CLI restart when env vars change
+  - Other MCP clients may not support the instructions field
+- Git staged diff capture during compaction (50KB limit)
+- Git context in compaction summaries (branch, file counts, staged changes)
+- Tool schema verification parameters to prevent user errors (task_title, checkpoint_name, session_name)
+- Version now read from package.json for consistency
+
+### Changed
+- Tools requiring verification parameters: context_task_update, context_task_complete, context_restore, context_checkpoint_add_items, context_checkpoint_remove_items, context_checkpoint_split, context_checkpoint_delete, context_session_resume, context_session_switch, context_session_delete
+- Tool responses now include human-readable names instead of just IDs
+
 ## [0.1.4] - 2025-11-10
 
 ### Added

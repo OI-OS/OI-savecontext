@@ -62,7 +62,7 @@ pnpm build
 ## Configuration
 
 <details>
-<summary>▶ <b>Install in Claude Code</b></summary>
+<summary><b>Install in Claude Code</b></summary>
 
 <br>
 
@@ -106,7 +106,7 @@ pnpm build
 </details>
 
 <details>
-<summary>▶ <b>Install in Cursor</b></summary>
+<summary><b>Install in Cursor</b></summary>
 
 <br>
 
@@ -146,7 +146,7 @@ pnpm build
 </details>
 
 <details>
-<summary>▶ <b>Install in Cline</b></summary>
+<summary><b>Install in Cline</b></summary>
 
 <br>
 
@@ -181,7 +181,7 @@ pnpm build
 </details>
 
 <details>
-<summary>▶ <b>Install in VS Code</b></summary>
+<summary><b>Install in VS Code</b></summary>
 
 <br>
 
@@ -222,7 +222,7 @@ pnpm build
 </details>
 
 <details>
-<summary>▶ <b>Install in Factory</b></summary>
+<summary><b>Install in Factory</b></summary>
 
 <br>
 
@@ -241,7 +241,7 @@ droid mcp add savecontext "npx -y @savecontext/mcp" --env SAVECONTEXT_API_KEY=sk
 </details>
 
 <details>
-<summary>▶ <b>Install in OpenAI Codex</b></summary>
+<summary><b>Install in OpenAI Codex</b></summary>
 
 <br>
 
@@ -263,7 +263,7 @@ http_headers = { "SAVECONTEXT_API_KEY" = "sk_your_api_key_here" }
 </details>
 
 <details>
-<summary>▶ <b>Install in Google Antigravity</b></summary>
+<summary><b>Install in Google Antigravity</b></summary>
 
 <br>
 
@@ -300,7 +300,7 @@ http_headers = { "SAVECONTEXT_API_KEY" = "sk_your_api_key_here" }
 </details>
 
 <details>
-<summary>▶ <b>Install in Zed</b></summary>
+<summary><b>Install in Zed</b></summary>
 
 <br>
 
@@ -325,7 +325,7 @@ Add this to your Zed `settings.json`:
 </details>
 
 <details>
-<summary>▶ <b>Install in Claude Desktop</b></summary>
+<summary><b>Install in Claude Desktop</b></summary>
 
 <br>
 
@@ -360,7 +360,7 @@ Open Claude Desktop developer settings and edit your `claude_desktop_config.json
 </details>
 
 <details>
-<summary>▶ <b>Install in JetBrains AI Assistant</b></summary>
+<summary><b>Install in JetBrains AI Assistant</b></summary>
 
 <br>
 
@@ -389,7 +389,7 @@ Open Claude Desktop developer settings and edit your `claude_desktop_config.json
 </details>
 
 <details>
-<summary>▶ <b>Install in Roo Code</b></summary>
+<summary><b>Install in Roo Code</b></summary>
 
 <br>
 
@@ -430,7 +430,7 @@ Edit Roo Code's MCP settings:
 </details>
 
 <details>
-<summary>▶ <b>Install in Augment Code</b></summary>
+<summary><b>Install in Augment Code</b></summary>
 
 <br>
 
@@ -476,7 +476,7 @@ In Augment Code settings, add remote MCP server:
 </details>
 
 <details>
-<summary>▶ <b>Install in Kilo Code</b></summary>
+<summary><b>Install in Kilo Code</b></summary>
 
 <br>
 
@@ -500,7 +500,7 @@ Add to your Kilo Code MCP configuration:
 </details>
 
 <details>
-<summary>▶ <b>Install in Gemini CLI</b></summary>
+<summary><b>Install in Gemini CLI</b></summary>
 
 <br>
 
@@ -517,7 +517,7 @@ gemini mcp add savecontext \
 </details>
 
 <details>
-<summary>▶ <b>Install in Perplexity Desktop</b></summary>
+<summary><b>Install in Perplexity Desktop</b></summary>
 
 <br>
 
@@ -541,7 +541,7 @@ Navigate to Perplexity Desktop Settings → Integrations → MCP Servers:
 </details>
 
 <details>
-<summary>▶ <b>Install in LM Studio</b></summary>
+<summary><b>Install in LM Studio</b></summary>
 
 <br>
 
@@ -566,7 +566,7 @@ In LM Studio, go to Settings → Tools → MCP and add:
 </details>
 
 <details>
-<summary>▶ <b>Install in GitHub Copilot Coding Agent</b></summary>
+<summary><b>Install in GitHub Copilot Coding Agent</b></summary>
 
 <br>
 
@@ -592,7 +592,7 @@ Add to your Copilot Coding Agent configuration:
 </details>
 
 <details>
-<summary>▶ <b>Install in Copilot CLI</b></summary>
+<summary><b>Install in Copilot CLI</b></summary>
 
 <br>
 
@@ -608,7 +608,7 @@ gh copilot config set mcp.servers.savecontext.env.SAVECONTEXT_BASE_URL "https://
 </details>
 
 <details>
-<summary>▶ <b>Install in Warp AI</b></summary>
+<summary><b>Install in Warp AI</b></summary>
 
 <br>
 
@@ -632,7 +632,7 @@ In Warp terminal, navigate to Settings → AI → MCP Servers:
 </details>
 
 <details>
-<summary>▶ <b>Install in Qodo Gen</b></summary>
+<summary><b>Install in Qodo Gen</b></summary>
 
 <br>
 
@@ -657,7 +657,7 @@ Add to Qodo Gen MCP configuration file:
 </details>
 
 <details>
-<summary>▶ <b>Install in Replit AI</b></summary>
+<summary><b>Install in Replit AI</b></summary>
 
 <br>
 
@@ -676,7 +676,7 @@ SAVECONTEXT_BASE_URL = "https://mcp.savecontext.dev"
 </details>
 
 <details>
-<summary>▶ <b>Install in Amazon Q Developer</b></summary>
+<summary><b>Install in Amazon Q Developer</b></summary>
 
 <br>
 
@@ -700,7 +700,7 @@ Configure in Amazon Q Developer settings:
 </details>
 
 <details>
-<summary>▶ <b>Install in Sourcegraph Cody</b></summary>
+<summary><b>Install in Sourcegraph Cody</b></summary>
 
 <br>
 
@@ -743,7 +743,7 @@ Add to Cody's MCP server configuration:
 </details>
 
 <details>
-<summary>▶ <b>Install in Tabnine</b></summary>
+<summary><b>Install in Tabnine</b></summary>
 
 <br>
 
@@ -767,7 +767,7 @@ In Tabnine settings, navigate to Extensions → MCP:
 </details>
 
 <details>
-<summary>▶ <b>From Source (Development)</b></summary>
+<summary><b>From Source (Development)</b></summary>
 
 <br>
 

@@ -284,10 +284,14 @@ export function validateRestoreCheckpoint(args: any): RestoreCheckpointArgs {
     throw new ValidationError('Invalid arguments: must be an object');
   }
 
-  const { checkpoint_id, restore_tags, restore_categories } = args;
+  const { checkpoint_id, checkpoint_name, restore_tags, restore_categories } = args;
 
   if (!checkpoint_id || typeof checkpoint_id !== 'string') {
     throw new ValidationError('checkpoint_id is required and must be a string');
+  }
+
+  if (!checkpoint_name || typeof checkpoint_name !== 'string') {
+    throw new ValidationError('checkpoint_name is required and must be a string');
   }
 
   // Validate filter arrays
@@ -308,6 +312,7 @@ export function validateRestoreCheckpoint(args: any): RestoreCheckpointArgs {
 
   return {
     checkpoint_id: checkpoint_id.trim(),
+    checkpoint_name: checkpoint_name.trim(),
     restore_tags,
     restore_categories: restore_categories as ItemCategory[] | undefined,
   };
@@ -362,10 +367,14 @@ export function validateCheckpointItemManagement(args: any): CheckpointItemManag
     throw new ValidationError('Invalid arguments: must be an object');
   }
 
-  const { checkpoint_id, item_keys } = args;
+  const { checkpoint_id, checkpoint_name, item_keys } = args;
 
   if (!checkpoint_id || typeof checkpoint_id !== 'string') {
     throw new ValidationError('checkpoint_id is required and must be a string');
+  }
+
+  if (!checkpoint_name || typeof checkpoint_name !== 'string') {
+    throw new ValidationError('checkpoint_name is required and must be a string');
   }
 
   if (!item_keys || !Array.isArray(item_keys) || item_keys.length === 0) {
@@ -374,6 +383,7 @@ export function validateCheckpointItemManagement(args: any): CheckpointItemManag
 
   return {
     checkpoint_id: checkpoint_id.trim(),
+    checkpoint_name: checkpoint_name.trim(),
     item_keys,
   };
 }
@@ -386,10 +396,14 @@ export function validateCheckpointSplit(args: any): CheckpointSplitArgs {
     throw new ValidationError('Invalid arguments: must be an object');
   }
 
-  const { source_checkpoint_id, splits } = args;
+  const { source_checkpoint_id, source_checkpoint_name, splits } = args;
 
   if (!source_checkpoint_id || typeof source_checkpoint_id !== 'string') {
     throw new ValidationError('source_checkpoint_id is required and must be a string');
+  }
+
+  if (!source_checkpoint_name || typeof source_checkpoint_name !== 'string') {
+    throw new ValidationError('source_checkpoint_name is required and must be a string');
   }
 
   if (!splits || !Array.isArray(splits) || splits.length === 0) {
@@ -424,6 +438,7 @@ export function validateCheckpointSplit(args: any): CheckpointSplitArgs {
 
   return {
     source_checkpoint_id: source_checkpoint_id.trim(),
+    source_checkpoint_name: source_checkpoint_name.trim(),
     splits,
   };
 }

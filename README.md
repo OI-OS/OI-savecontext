@@ -1052,8 +1052,8 @@ pnpm start    # Run compiled version
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+See [CONTRIBUTING.md](https://github.com/greenfieldlabs-inc/savecontext/blob/main/CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-MIT - see [LICENSE](LICENSE)
+MIT - see [LICENSE](https://github.com/greenfieldlabs-inc/savecontext/blob/main/LICENSE)

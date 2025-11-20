@@ -219,10 +219,10 @@ If you have existing local data and want to migrate it to SaveContext Cloud, use
 
 ```bash
 # Using npx (recommended)
-npx -y @savecontext/mcp migrate <api-key>
+npx -y -p @savecontext/mcp savecontext-migrate <api-key>
 
 # Or with environment variable
-SAVECONTEXT_API_KEY=sk_your_key npx -y @savecontext/mcp migrate
+SAVECONTEXT_API_KEY=sk_your_key npx -y -p @savecontext/mcp savecontext-migrate
 
 # If installed globally
 savecontext-migrate <api-key>

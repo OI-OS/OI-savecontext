@@ -1,9 +1,6 @@
 ![SaveContext](https://pub-4304173ae3f74a77852a77192ab0b3e3.r2.dev/cover.png)
-
 <div align="center">
-
 <img src="https://pub-4304173ae3f74a77852a77192ab0b3e3.r2.dev/github-logo.png" alt="SaveContext" width="800">
-
 **Persistent context management for AI coding sessions**
 
 [![npm version](https://img.shields.io/npm/v/@savecontext/mcp?color=brightgreen)](https://www.npmjs.com/package/@savecontext/mcp)

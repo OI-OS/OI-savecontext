@@ -766,6 +766,197 @@ In Tabnine settings, navigate to Extensions → MCP:
 </details>
 
 <details>
+<summary><b>Install in BoltAI</b></summary>
+
+<br>
+
+Open the "Settings" page of the app, navigate to "Plugins," and enter the following JSON:
+
+```json
+{
+  "mcpServers": {
+    "savecontext": {
+      "command": "npx",
+      "args": ["-y", "@savecontext/mcp"],
+      "env": {
+        "SAVECONTEXT_API_KEY": "sk_your_api_key_here",
+        "SAVECONTEXT_BASE_URL": "https://mcp.savecontext.dev"
+      }
+    }
+  }
+}
+```
+
+For more information, see [BoltAI's Documentation](https://docs.boltai.com/docs/plugins/mcp-servers). For BoltAI on iOS, [see this guide](https://docs.boltai.com/docs/boltai-mobile/mcp-servers).
+
+</details>
+
+<details>
+<summary><b>Install in Opencode</b></summary>
+
+<br>
+
+Add this to your Opencode configuration file. See [Opencode MCP docs](https://opencode.ai/docs/mcp-servers) for more info.
+
+**Local Mode:**
+```json
+{
+  "mcp": {
+    "savecontext": {
+      "type": "local",
+      "command": ["npx", "-y", "@savecontext/mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Cloud Mode:**
+```json
+{
+  "mcp": {
+    "savecontext": {
+      "type": "local",
+      "command": ["npx", "-y", "@savecontext/mcp"],
+      "enabled": true,
+      "env": {
+        "SAVECONTEXT_API_KEY": "sk_your_api_key_here",
+        "SAVECONTEXT_BASE_URL": "https://mcp.savecontext.dev"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Install in Qwen Coder</b></summary>
+
+<br>
+
+See [Qwen Coder MCP Configuration](https://qwenlm.github.io/qwen-code-docs/en/tools/mcp-server/#how-to-set-up-your-mcp-server) for details.
+
+1. Open the Qwen Coder settings file at `~/.qwen/settings.json`
+2. Add the following to the `mcpServers` object:
+
+**Local Mode:**
+```json
+{
+  "mcpServers": {
+    "savecontext": {
+      "command": "npx",
+      "args": ["-y", "@savecontext/mcp"]
+    }
+  }
+}
+```
+
+**Cloud Mode:**
+```json
+{
+  "mcpServers": {
+    "savecontext": {
+      "command": "npx",
+      "args": ["-y", "@savecontext/mcp"],
+      "env": {
+        "SAVECONTEXT_API_KEY": "sk_your_api_key_here",
+        "SAVECONTEXT_BASE_URL": "https://mcp.savecontext.dev"
+      }
+    }
+  }
+}
+```
+
+If the `mcpServers` object does not exist, create it.
+
+</details>
+
+<details>
+<summary><b>Install in Visual Studio 2022</b></summary>
+
+<br>
+
+Configure SaveContext MCP in Visual Studio 2022 by following the [Visual Studio MCP Servers documentation](https://learn.microsoft.com/visualstudio/ide/mcp-servers?view=vs-2022).
+
+Add this to your Visual Studio MCP config file:
+
+**Local Mode:**
+```json
+{
+  "mcp": {
+    "servers": {
+      "savecontext": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@savecontext/mcp"]
+      }
+    }
+  }
+}
+```
+
+**Cloud Mode:**
+```json
+{
+  "mcp": {
+    "servers": {
+      "savecontext": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "@savecontext/mcp"],
+        "env": {
+          "SAVECONTEXT_API_KEY": "sk_your_api_key_here",
+          "SAVECONTEXT_BASE_URL": "https://mcp.savecontext.dev"
+        }
+      }
+    }
+  }
+}
+```
+
+For more information and troubleshooting, refer to the [Visual Studio MCP Servers documentation](https://learn.microsoft.com/visualstudio/ide/mcp-servers?view=vs-2022).
+
+</details>
+
+<details>
+<summary><b>Install in Windsurf</b></summary>
+
+<br>
+
+Add this to your Windsurf MCP config file. See [Windsurf MCP docs](https://docs.windsurf.com/windsurf/cascade/mcp) for more info.
+
+**Local Mode:**
+```json
+{
+  "mcpServers": {
+    "savecontext": {
+      "command": "npx",
+      "args": ["-y", "@savecontext/mcp"]
+    }
+  }
+}
+```
+
+**Cloud Mode:**
+```json
+{
+  "mcpServers": {
+    "savecontext": {
+      "command": "npx",
+      "args": ["-y", "@savecontext/mcp"],
+      "env": {
+        "SAVECONTEXT_API_KEY": "sk_your_api_key_here",
+        "SAVECONTEXT_BASE_URL": "https://mcp.savecontext.dev"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
 <summary><b>From Source (Development)</b></summary>
 
 <br>

@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-orange)](https://modelcontextprotocol.io)
 
-[Website](https://savecontext.dev) • [NPM](https://www.npmjs.com/package/@savecontext/mcp) • [GitHub](https://github.com/greenfieldlabs-inc/savecontext)
+[Website](https://savecontext.dev) • [NPM](https://www.npmjs.com/package/@savecontext/mcp) • [Changelog](https://savecontext.dev/changelog)
 
 </div>
 

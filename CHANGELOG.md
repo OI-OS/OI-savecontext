@@ -5,14 +5,25 @@ All notable changes to this project will be documented in this file.
 ## Historical Note
 Versions 0.1.0-0.1.2 were development releases with package.json version mismatches. v0.1.3 is the first npm-published release.
 
-## [0.1.7] - 2025-11-20
+## [0.1.8] - 2025-11-20
+
+### Fixed
+- **Critical:** Executable permissions on compiled binaries now preserved via build script
+- TypeScript compilation loses executable permissions - now explicitly restored with chmod
+- Both `savecontext` and `savecontext-migrate` binaries now work correctly after npm install
+- v0.1.6 and v0.1.7 were unusable - use v0.1.8 instead
+
+### Changed
+- Build script now includes `chmod +x dist/index.js dist/cli/migrate.js` to ensure binaries are executable
+
+## [0.1.7] - 2025-11-20 [BROKEN - USE 0.1.8]
 
 ### Fixed
 - **Critical:** Restore `./` prefix to bin entries that were stripped by `npm pkg fix`
 - Package executables now work correctly with `npx` and global installs
 - v0.1.6 was unusable due to broken bin paths - use v0.1.7 instead
 
-## [0.1.6] - 2025-11-20 [BROKEN - USE 0.1.7]
+## [0.1.6] - 2025-11-20 [BROKEN - USE 0.1.8]
 
 ### Added
 - **SaveContext Cloud support** - Dual-mode operation (local SQLite or cloud API)

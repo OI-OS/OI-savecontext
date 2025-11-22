@@ -1373,10 +1373,11 @@ Returns:
 **context_session_rename**
 ```javascript
 {
-  new_name: string  // Required: new session name
+  current_name: string,  // Required: current session name (get from context_status)
+  new_name: string       // Required: new session name
 }
 ```
-Renames the current active session.
+Renames the current active session. Requires `current_name` for verification to prevent accidental renames.
 
 **context_list_sessions**
 ```javascript

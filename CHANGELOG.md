@@ -14,6 +14,12 @@ Versions 0.1.0-0.1.2 were development releases with package.json version mismatc
   - Useful when you want to start fresh without resuming previous work
   - Tool description updated to mention this option
 
+### Changed
+- **`context_session_rename` now requires `current_name` parameter** - Verification to prevent accidental renames
+  - Must call `context_status` first to get current session name
+  - Prevents renaming wrong session when multiple sessions exist
+  - TypeScript `RenameSessionArgs` interface updated with `current_name: string`
+
 ### Fixed
 - **Session resume bug** - Only resume sessions with `active` status, not `completed` or `paused`
   - Previously could try to resume a session that was already ended

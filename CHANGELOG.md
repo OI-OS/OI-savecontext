@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 ## Historical Note
 Versions 0.1.0-0.1.2 were development releases with package.json version mismatches. v0.1.3 is the first npm-published release.
 
+## [0.1.10] - 2025-11-22
+
+### Added
+- **`force_new` parameter for `context_session_start`** - Force create a new session instead of auto-resuming
+  - When `force_new=true`, pauses any existing active session before creating new one
+  - Paused sessions can be resumed later via `context_session_resume`
+  - Useful when you want to start fresh without resuming previous work
+  - Tool description updated to mention this option
+
+### Fixed
+- **Session resume bug** - Only resume sessions with `active` status, not `completed` or `paused`
+  - Previously could try to resume a session that was already ended
+- **Stale agent session cleanup** - Agent session links are properly cleaned up when:
+  - Session is ended via `context_session_end`
+  - New session is forced via `force_new=true`
+- **Cloud prepare-compaction** - Now properly passes session_id to API endpoint
+
 ## [0.1.9] - 2025-11-20
 
 ### Fixed

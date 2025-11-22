@@ -1275,10 +1275,11 @@ Git information is optional and only captured when `include_git: true` is specif
   name: string,           // Required: session name
   description?: string,   // Optional: session description
   channel?: string,       // Optional: override auto-derived channel
-  project_path?: string   // Optional: override auto-detected project path
+  project_path?: string,  // Optional: override auto-detected project path
+  force_new?: boolean     // Optional: force new session instead of resuming
 }
 ```
-Creates a new session and sets it as active. Auto-derives channel from git branch and detects project path from current working directory. If an active session already exists for the current project, automatically resumes it instead of creating a duplicate.
+Creates a new session and sets it as active. Auto-derives channel from git branch and detects project path from current working directory. If an active session already exists for the current project, automatically resumes it instead of creating a duplicate. Use `force_new: true` to always create a fresh session (pauses any existing active session so it can be resumed later).
 
 **context_save**
 ```javascript

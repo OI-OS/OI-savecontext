@@ -9,9 +9,8 @@ Versions 0.1.0-0.1.2 were development releases with package.json version mismatc
 
 ### Added
 - **23 new MCP client mappings** - Extended provider detection for more AI coding tools
-  - IDEs: VS Code, Visual Studio, Zed, JetBrains
-  - AI Assistants: Roo Code, Augment, Kilo Code, Copilot, Cody, Tabnine, Qodo, Amazon Q, Replit, Opencode, Antigravity
-  - CLI Tools: Gemini CLI, Warp, Qwen Coder
+  - IDEs: VS Code, Visual Studio, Zed, JetBrains, Antigravity, Replit
+  - CLI/Extensions: Roo Code, Augment, Kilo Code, Copilot, Cody, Tabnine, Qodo, Amazon Q, Opencode, Gemini CLI, Warp, Qwen Coder
   - Desktop Apps: Perplexity, ChatGPT, LM Studio, BoltAI, Raycast
 
 ### Changed

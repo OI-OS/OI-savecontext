@@ -3,7 +3,6 @@
 /**
  * SaveContext MCP Server
  * Dual-mode context management: Local (SQLite) or Cloud (API)
- * Built clean from scratch, learned from Memory Keeper
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -41,7 +40,7 @@ const options = program.opts();
 // Check for API key from CLI flag or environment variable
 const apiKey = options.apiKey || process.env.SAVECONTEXT_API_KEY;
 const mode = apiKey ? 'cloud' : 'local';
-const baseUrl = process.env.SAVECONTEXT_BASE_URL || 'https://savecontext.dev';
+const baseUrl = process.env.SAVECONTEXT_BASE_URL || 'https://mcp.savecontext.dev';
 
 console.error(`[SaveContext] Mode: ${mode}`);
 if (mode === 'cloud') {
@@ -128,8 +127,6 @@ const compactionConfig = loadCompactionConfig();
 let currentSessionId: string | null = null;
 
 // Connection tracking
-// STDIO: One connection per process (currentConnectionId is always the same)
-// SSE/HTTP: Multiple connections (would need request context to lookup)
 const connections = new Map<string, ConnectionState>();
 let currentConnectionId: string | null = null;
 
@@ -157,16 +154,39 @@ const server = new Server(
 function normalizeClientName(clientName: string): string {
   const name = (clientName || 'unknown').toLowerCase();
 
-  // Map known MCP clients to provider names
+  // Coding tools (have project path and git branch context)
   if (name.includes('claude') && name.includes('code')) return 'claude-code';
-  if (name.includes('claude') && name.includes('desktop')) return 'claude-desktop';
-  if (name.includes('claude')) return 'claude-desktop'; // Fallback for any other Claude app
-  if (name.includes('factory')) return 'factory-ai';
   if (name.includes('cursor')) return 'cursor';
-  if (name.includes('cline')) return 'cline';
-  if (name.includes('codex')) return 'codex-cli';
   if (name.includes('windsurf')) return 'windsurf';
-  // @DEV -- Add additional mappings as needed
+  if (name.includes('vscode') || name.includes('vs code')) return 'vscode';
+  if (name.includes('visual studio')) return 'visual-studio';
+  if (name.includes('zed')) return 'zed';
+  if (name.includes('jetbrains')) return 'jetbrains';
+  if (name.includes('cline')) return 'cline';
+  if (name.includes('roo')) return 'roo-code';
+  if (name.includes('augment')) return 'augment';
+  if (name.includes('kilo')) return 'kilo-code';
+  if (name.includes('factory')) return 'factory-ai';
+  if (name.includes('codex')) return 'codex-cli';
+  if (name.includes('copilot')) return 'copilot';
+  if (name.includes('cody') || name.includes('sourcegraph')) return 'cody';
+  if (name.includes('tabnine')) return 'tabnine';
+  if (name.includes('qodo')) return 'qodo';
+  if (name.includes('amazon') && name.includes('q')) return 'amazon-q';
+  if (name.includes('replit')) return 'replit';
+  if (name.includes('opencode')) return 'opencode';
+  if (name.includes('antigravity')) return 'antigravity';
+  if (name.includes('gemini')) return 'gemini-cli';
+  if (name.includes('warp')) return 'warp';
+  if (name.includes('qwen')) return 'qwen-coder';
+
+  // Desktop apps (no project path or git branch context)
+  if (name.includes('claude')) return 'claude-desktop';
+  if (name.includes('perplexity')) return 'perplexity';
+  if (name.includes('chatgpt')) return 'chatgpt';
+  if (name.includes('lm-studio') || name.includes('lmstudio')) return 'lm-studio';
+  if (name.includes('bolt')) return 'bolt-ai';
+  if (name.includes('raycast')) return 'raycast';
 
   // Return sanitized name for unknown clients
   return name.replace(/\s+/g, '-');
@@ -174,7 +194,8 @@ function normalizeClientName(clientName: string): string {
 
 /**
  * Generate agent ID from project path, git branch, and provider
- * Format: "${projectName}-${branch}-${provider}"
+ * Format: "${projectName}-${branch}-${provider}" for coding tools
+ * Format: "global-${provider}" for desktop apps without project context
  * Can be overridden via SAVECONTEXT_AGENT_ID env var
  */
 function getAgentId(projectPath: string, branch: string, provider: string): string {
@@ -183,17 +204,21 @@ function getAgentId(projectPath: string, branch: string, provider: string): stri
     return process.env.SAVECONTEXT_AGENT_ID;
   }
 
+  const safeProvider = provider || 'unknown';
+
+  // Desktop apps without project context get simplified ID
+  if (!projectPath) {
+    return `global-${safeProvider}`;
+  }
+
   const projectName = projectPath.split('/').pop() || 'unknown';
   const safeBranch = branch || 'main';
-  const safeProvider = provider || 'unknown';
 
   return `${projectName}-${safeBranch}-${safeProvider}`;
 }
 
 /**
  * Get the current provider from the active connection
- * STDIO: Always returns the single connected client's provider
- * SSE/HTTP: Would need request context to determine which connection
  */
 function getCurrentProvider(): string {
   if (!currentConnectionId) {
@@ -2092,20 +2117,11 @@ function generateServerInstructions(): string {
 
 /**
  * Handle MCP initialization - capture client info
- * This is called when an MCP client first connects
- *
- * STDIO: One connection per process, connectionId is static
- * SSE/HTTP: Multiple connections, would generate unique IDs per request
  */
 server.setRequestHandler(InitializeRequestSchema, async (request) => {
-  // Extract client information from the initialization handshake
   const rawClientName = request.params.clientInfo?.name || 'unknown';
   const rawClientVersion = request.params.clientInfo?.version || '0.0.0';
   const provider = normalizeClientName(rawClientName);
-
-  // Create connection ID
-  // STDIO: Use static ID since it's 1:1
-  // SSE/HTTP: Would use crypto.randomUUID() or request context
   const connectionId = 'stdio-main';
 
   // Store connection state
@@ -2146,7 +2162,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: 'context_session_start',
-        description: 'Start a new coding session or resume existing one. Auto-derives channel from git branch. Call at conversation start or when switching contexts. Use force_new=true to always create a fresh session instead of resuming an existing one.',
+        description: 'Start a new coding session or resume existing one. Auto-derives channel from git branch. Call at conversation start or when switching contexts. Use force_new=true to always create a fresh session instead of resuming an existing one. IMPORTANT: Always pass project_path with the specific project folder path (not workspace root). If working in a monorepo or unsure which project folder to use, ask the user before calling this tool.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -2157,6 +2173,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             description: {
               type: 'string',
               description: 'Optional session description',
+            },
+            project_path: {
+              type: 'string',
+              description: 'Project folder path. Always pass this to ensure correct project tracking. Ask the user if unsure which folder to use.',
             },
             channel: {
               type: 'string',
@@ -2852,7 +2872,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const projectPath = normalizeProjectPath(getCurrentProjectPath());
         const provider = getCurrentProvider();
         const agentId = getAgentId(projectPath, branch || 'main', provider);
-        console.error('[MCP Server] Setting agent metadata:', { agentId, projectPath, branch, provider });
         cloud!.setAgentMetadata(agentId, projectPath, branch || 'main', provider);
       } catch (err) {
         // Don't fail requests if agent metadata update fails

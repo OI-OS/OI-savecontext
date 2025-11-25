@@ -34,6 +34,21 @@ export async function isGitRepository(dir: string): Promise<boolean> {
 }
 
 /**
+ * Get the git root directory (project root)
+ * Returns null if not in a git repository
+ */
+export async function getGitRoot(cwd?: string): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync('git rev-parse --show-toplevel', {
+      cwd: cwd || process.cwd(),
+    });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get the current git branch
  */
 export async function getCurrentBranch(cwd?: string): Promise<string | null> {

@@ -16,6 +16,11 @@ import {
   ItemCategory,
   ItemPriority,
 } from '../types/index.js';
+import {
+  SESSION_NAME_MAX_LENGTH,
+  CONTEXT_VALUE_MAX_LENGTH,
+  CONTEXT_ITEMS_MAX_LIMIT,
+} from './constants.js';
 
 const VALID_CATEGORIES: ItemCategory[] = ['task', 'decision', 'progress', 'note'];
 const VALID_PRIORITIES: ItemPriority[] = ['high', 'normal', 'low'];
@@ -35,8 +40,8 @@ export function validateCreateSession(args: any): CreateSessionArgs {
     throw new ValidationError('name is required and must be a non-empty string');
   }
 
-  if (name.length > 200) {
-    throw new ValidationError('name must be 200 characters or less');
+  if (name.length > SESSION_NAME_MAX_LENGTH) {
+    throw new ValidationError(`name must be ${SESSION_NAME_MAX_LENGTH} characters or less`);
   }
 
   // Description is optional
@@ -86,8 +91,8 @@ export function validateSaveContext(args: any): SaveContextArgs {
     throw new ValidationError('key is required and must be a non-empty string');
   }
 
-  if (key.length > 200) {
-    throw new ValidationError('key must be 200 characters or less');
+  if (key.length > SESSION_NAME_MAX_LENGTH) {
+    throw new ValidationError(`key must be ${SESSION_NAME_MAX_LENGTH} characters or less`);
   }
 
   // Value is required
@@ -99,7 +104,7 @@ export function validateSaveContext(args: any): SaveContextArgs {
     throw new ValidationError('value must be a string');
   }
 
-  if (value.length > 100000) {
+  if (value.length > CONTEXT_VALUE_MAX_LENGTH) {
     // 100KB limit for single item
     throw new ValidationError('value must be 100,000 characters or less');
   }
@@ -188,8 +193,8 @@ export function validateGetContext(args: any): GetContextArgs {
   }
 
   if (limit !== undefined) {
-    if (typeof limit !== 'number' || limit < 1 || limit > 1000) {
-      throw new ValidationError('limit must be a number between 1 and 1000');
+    if (typeof limit !== 'number' || limit < 1 || limit > CONTEXT_ITEMS_MAX_LIMIT) {
+      throw new ValidationError(`limit must be a number between 1 and ${CONTEXT_ITEMS_MAX_LIMIT}`);
     }
   }
 
@@ -224,8 +229,8 @@ export function validateCreateCheckpoint(args: any): CreateCheckpointArgs {
     throw new ValidationError('name is required and must be a non-empty string');
   }
 
-  if (name.length > 200) {
-    throw new ValidationError('name must be 200 characters or less');
+  if (name.length > SESSION_NAME_MAX_LENGTH) {
+    throw new ValidationError(`name must be ${SESSION_NAME_MAX_LENGTH} characters or less`);
   }
 
   // Description is optional

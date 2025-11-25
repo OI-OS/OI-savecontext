@@ -19,18 +19,20 @@ const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
 const VERSION = packageJson.version;
 
-// ====================
-// Configuration Constants
-// ====================
-const COMPACTION_THRESHOLD_DEFAULT = 70;
-const COMPACTION_THRESHOLD_MIN = 50;
-const COMPACTION_THRESHOLD_MAX = 90;
-const CONTEXT_ITEMS_DEFAULT_LIMIT = 100;
-const COMPACTION_HIGH_PRIORITY_LIMIT = 50;
-const COMPACTION_DECISION_LIMIT = 20;
-const COMPACTION_TASK_LIMIT = 20;
-const COMPACTION_PROGRESS_LIMIT = 10;
-const COMPACTION_ITEM_COUNT_THRESHOLD = 40;
+import {
+  COMPACTION_THRESHOLD_DEFAULT,
+  COMPACTION_THRESHOLD_MIN,
+  COMPACTION_THRESHOLD_MAX,
+  COMPACTION_HIGH_PRIORITY_LIMIT,
+  COMPACTION_DECISION_LIMIT,
+  COMPACTION_TASK_LIMIT,
+  COMPACTION_PROGRESS_LIMIT,
+  COMPACTION_ITEM_COUNT_THRESHOLD,
+  SESSION_NAME_MAX_LENGTH,
+  CONTEXT_VALUE_MAX_LENGTH,
+  CONTEXT_ITEMS_DEFAULT_LIMIT,
+  CONTEXT_ITEMS_MAX_LIMIT,
+} from './utils/constants.js';
 
 // ====================
 // CLI Argument Parsing
@@ -2154,6 +2156,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             name: {
               type: 'string',
+              minLength: 1,
+              maxLength: SESSION_NAME_MAX_LENGTH,
               description: 'Session name (e.g., "Implementing Authentication")',
             },
             description: {
@@ -2188,7 +2192,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             value: {
               type: 'string',
-              description: 'The context value to save',
+              maxLength: CONTEXT_VALUE_MAX_LENGTH,
+              description: 'The context value to save (max 100KB)',
             },
             category: {
               type: 'string',
@@ -2234,6 +2239,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
             limit: {
               type: 'number',
+              minimum: 1,
+              maximum: CONTEXT_ITEMS_MAX_LIMIT,
               description: 'Maximum items to return (default: 100)',
             },
             offset: {

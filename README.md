@@ -1270,6 +1270,86 @@ All validation, type safety, and MCP protocol handling remains consistent across
 
 ## Architecture
 
+SaveContext operates in two modes with different architectures:
+
+### Local Mode Architecture
+
+In local mode (default), all data is stored on your machine in SQLite:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Your Machine                                           │
+│  ┌───────────────────┐    ┌──────────────────────────┐ │
+│  │  AI Coding Tool   │◄──►│  SaveContext MCP Server  │ │
+│  │  (Claude Code,    │    │  (stdio process)         │ │
+│  │   Cursor, etc.)   │    └────────────┬─────────────┘ │
+│  └───────────────────┘                 │               │
+│                                        ▼               │
+│                           ┌──────────────────────────┐ │
+│                           │  SQLite Database         │ │
+│                           │  ~/.savecontext/data/    │ │
+│                           │  savecontext.db          │ │
+│                           └──────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+- **No account required** - completely self-hosted
+- **No network calls** - all data stays local
+- **Unlimited usage** - no rate limits
+
+### Cloud Mode Architecture
+
+In cloud mode, the local MCP server acts as a thin proxy to the cloud API:
+
+```
+┌────────────────────────────────────────┐
+│  Your Machine                          │
+│  ┌───────────────────┐                 │
+│  │  AI Coding Tool   │                 │
+│  │  (Claude Code,    │                 │
+│  │   Cursor, etc.)   │                 │
+│  └─────────┬─────────┘                 │
+│            │ stdio                     │
+│            ▼                           │
+│  ┌───────────────────┐                 │
+│  │  SaveContext MCP  │                 │
+│  │  Server (proxy)   │                 │
+│  └─────────┬─────────┘                 │
+└────────────┼───────────────────────────┘
+             │ HTTPS + Bearer Token
+             ▼
+┌────────────────────────────────────────┐
+│  SaveContext Cloud                     │
+│  ┌───────────────────┐                 │
+│  │  API Gateway      │                 │
+│  │  (Lambda)         │                 │
+│  └─────────┬─────────┘                 │
+│            │                           │
+│            ▼                           │
+│  ┌───────────────────┐                 │
+│  │  PostgreSQL (RDS) │                 │
+│  │  with encryption  │                 │
+│  └───────────────────┘                 │
+└────────────────────────────────────────┘
+```
+
+- **Multi-device sync** - access sessions from anywhere
+- **Automatic backups** - managed PostgreSQL with point-in-time recovery
+- **Team features** (coming soon) - share context across team members
+
+### HTTP Transport (Cloud Only)
+
+For MCP clients that support direct HTTP connections, SaveContext Cloud also offers HTTP Streamable Transport - bypassing the local stdio proxy entirely:
+
+```
+┌───────────────────┐         ┌────────────────────────────┐
+│  AI Coding Tool   │──HTTPS──►  SaveContext Cloud API    │
+│  (HTTP-capable)   │         │  mcp.savecontext.dev/mcp  │
+└───────────────────┘         └────────────────────────────┘
+```
+
+This is useful for tools like Claude Desktop that support HTTP connectors natively.
+
 ### Server Implementation
 
 The MCP server is built on `@modelcontextprotocol/sdk` and provides 33 tools for context management, including session lifecycle, memory storage, task management, and checkpoints. The server maintains a single active session per connection and stores data either in a local SQLite database (local mode) or via cloud API (cloud mode).
@@ -1280,12 +1360,15 @@ server/
 │   ├── index.ts              # MCP server with tool handlers
 │   ├── cloud-client.ts       # HTTP client for cloud API
 │   ├── cli/
+│   │   ├── auth.ts           # CLI authentication (savecontext-auth)
+│   │   ├── device-flow.ts    # RFC 8628 device authorization flow
 │   │   └── migrate.ts        # Migration CLI for local to cloud
 │   ├── database/
 │   │   ├── index.ts          # DatabaseManager class
 │   │   └── schema.sql        # SQLite schema
 │   ├── utils/
 │   │   ├── channels.ts       # Channel derivation and normalization
+│   │   ├── config.ts         # Credentials and config management
 │   │   ├── constants.ts      # Shared configuration constants
 │   │   ├── git.ts            # Git branch and status integration
 │   │   ├── project.ts        # Project path utilities

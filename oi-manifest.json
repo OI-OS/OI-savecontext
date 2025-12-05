@@ -1,0 +1,195 @@
+{
+  "server_name": "OI-savecontext",
+  "version": "1.0.0",
+  "intents": [
+    {
+      "keyword": "save context",
+      "tool_name": "context_save",
+      "priority": 10
+    },
+    {
+      "keyword": "save decision",
+      "tool_name": "context_save",
+      "priority": 10
+    },
+    {
+      "keyword": "save task",
+      "tool_name": "context_save",
+      "priority": 10
+    },
+    {
+      "keyword": "save note",
+      "tool_name": "context_save",
+      "priority": 10
+    },
+    {
+      "keyword": "save progress",
+      "tool_name": "context_save",
+      "priority": 10
+    },
+    {
+      "keyword": "get context",
+      "tool_name": "context_get",
+      "priority": 10
+    },
+    {
+      "keyword": "get decisions",
+      "tool_name": "context_get",
+      "priority": 10
+    },
+    {
+      "keyword": "get tasks",
+      "tool_name": "context_get",
+      "priority": 10
+    },
+    {
+      "keyword": "context status",
+      "tool_name": "context_status",
+      "priority": 10
+    },
+    {
+      "keyword": "session status",
+      "tool_name": "context_status",
+      "priority": 10
+    },
+    {
+      "keyword": "create checkpoint",
+      "tool_name": "context_checkpoint",
+      "priority": 10
+    },
+    {
+      "keyword": "save checkpoint",
+      "tool_name": "context_checkpoint",
+      "priority": 10
+    },
+    {
+      "keyword": "checkpoint",
+      "tool_name": "context_checkpoint",
+      "priority": 8
+    },
+    {
+      "keyword": "restore checkpoint",
+      "tool_name": "context_restore",
+      "priority": 10
+    },
+    {
+      "keyword": "restore from checkpoint",
+      "tool_name": "context_restore",
+      "priority": 10
+    },
+    {
+      "keyword": "start session",
+      "tool_name": "context_session_start",
+      "priority": 10
+    },
+    {
+      "keyword": "new session",
+      "tool_name": "context_session_start",
+      "priority": 10
+    },
+    {
+      "keyword": "create task",
+      "tool_name": "context_task_create",
+      "priority": 10
+    },
+    {
+      "keyword": "add task",
+      "tool_name": "context_task_create",
+      "priority": 10
+    },
+    {
+      "keyword": "list tasks",
+      "tool_name": "context_task_list",
+      "priority": 10
+    },
+    {
+      "keyword": "show tasks",
+      "tool_name": "context_task_list",
+      "priority": 10
+    },
+    {
+      "keyword": "complete task",
+      "tool_name": "context_task_complete",
+      "priority": 10
+    },
+    {
+      "keyword": "mark task done",
+      "tool_name": "context_task_complete",
+      "priority": 10
+    },
+    {
+      "keyword": "list sessions",
+      "tool_name": "context_list_sessions",
+      "priority": 10
+    },
+    {
+      "keyword": "list checkpoints",
+      "tool_name": "context_list_checkpoints",
+      "priority": 10
+    },
+    {
+      "keyword": "save memory",
+      "tool_name": "context_memory_save",
+      "priority": 10
+    },
+    {
+      "keyword": "get memory",
+      "tool_name": "context_memory_get",
+      "priority": 10
+    },
+    {
+      "keyword": "list memory",
+      "tool_name": "context_memory_list",
+      "priority": 10
+    },
+    {
+      "keyword": "prepare compaction",
+      "tool_name": "context_prepare_compaction",
+      "priority": 10
+    },
+    {
+      "keyword": "compact context",
+      "tool_name": "context_prepare_compaction",
+      "priority": 10
+    }
+  ],
+  "parameter_extractors": {
+    "context_save": {
+      "OI-savecontext::context_save.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)",
+      "OI-savecontext::context_save.value": "remove:save,context,decision,task,note,progress|regex:(?:value|is|equals?|to)[\\s:]+(.+)",
+      "OI-savecontext::context_save.category": "regex:(?:category|type)[\\s:]+(task|decision|progress|note)",
+      "OI-savecontext::context_save.priority": "regex:(?:priority)[\\s:]+(high|normal|low)"
+    },
+    "context_get": {
+      "OI-savecontext::context_get.category": "regex:(?:category|type)[\\s:]+(task|decision|progress|note)",
+      "OI-savecontext::context_get.priority": "regex:(?:priority)[\\s:]+(high|normal|low)",
+      "OI-savecontext::context_get.limit": "regex:(?:limit|max|results?)[\\s:]+(\\d+)"
+    },
+    "context_checkpoint": {
+      "OI-savecontext::context_checkpoint.name": "regex:(?:name|checkpoint)[\\s:]+([A-Za-z0-9\\s_-]+)",
+      "OI-savecontext::context_checkpoint.description": "regex:(?:description|desc)[\\s:]+(.+)",
+      "OI-savecontext::context_checkpoint.include_git": "regex:(?:include[\\s_-]?git|git)[\\s:]+(true|false|yes|no)"
+    },
+    "context_restore": {
+      "OI-savecontext::context_restore.checkpoint_id": "regex:(?:checkpoint[\\s_-]?id|id)[\\s:]+([A-Za-z0-9_-]+)",
+      "OI-savecontext::context_restore.checkpoint_name": "regex:(?:checkpoint[\\s_-]?name|name)[\\s:]+([A-Za-z0-9\\s_-]+)"
+    },
+    "context_task_create": {
+      "OI-savecontext::context_task_create.title": "remove:create,add,task|regex:(?:title|task|name)[\\s:]+(.+)",
+      "OI-savecontext::context_task_create.description": "regex:(?:description|desc)[\\s:]+(.+)"
+    },
+    "context_task_complete": {
+      "OI-savecontext::context_task_complete.task_id": "regex:(?:task[\\s_-]?id|id)[\\s:]+([A-Za-z0-9_-]+)"
+    },
+    "context_memory_save": {
+      "OI-savecontext::context_memory_save.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)",
+      "OI-savecontext::context_memory_save.value": "remove:save,memory|regex:(?:value|is|equals?|to)[\\s:]+(.+)",
+      "OI-savecontext::context_memory_save.category": "regex:(?:category|type)[\\s:]+(command|config|note)"
+    },
+    "context_memory_get": {
+      "OI-savecontext::context_memory_get.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)"
+    }
+  },
+  "reminder_message": "SaveContext MCP server for persistent context management across AI coding sessions. Supports local (SQLite) and cloud modes. Use context_save to save decisions/tasks/notes, context_get to retrieve, context_checkpoint to create snapshots, and context_restore to continue previous work."
+}
+

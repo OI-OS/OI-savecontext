@@ -14,6 +14,9 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { createRequire } from 'module';
 import { Command } from 'commander';
+import * as path from 'path';
+import * as os from 'os';
+import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
@@ -116,7 +119,12 @@ let db: DatabaseManager | null = null;
 let cloud: CloudClient | null = null;
 
 if (mode === 'local') {
-  db = new DatabaseManager();
+  // Use hidden .savecontext/data directory within server directory if SAVECONTEXT_DATA_DIR not set
+  const serverDir = path.dirname(fileURLToPath(import.meta.url));
+  const serverRoot = path.resolve(serverDir, '..', '..'); // Go up from dist/index.js to server root, then to OI-savecontext root
+  const dataDir = process.env.SAVECONTEXT_DATA_DIR || 
+    path.join(serverRoot, '.savecontext', 'data');
+  db = new DatabaseManager({ dataDir });
 } else {
   cloud = new CloudClient(apiKey!, baseUrl);
 }

@@ -118,6 +118,11 @@
       "priority": 10
     },
     {
+      "keyword": "update task",
+      "tool_name": "context_task_update",
+      "priority": 10
+    },
+    {
       "keyword": "list sessions",
       "tool_name": "context_list_sessions",
       "priority": 10
@@ -155,39 +160,51 @@
   ],
   "parameter_extractors": {
     "context_save": {
-      "OI-savecontext::context_save.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)",
-      "OI-savecontext::context_save.value": "remove:save,context,decision,task,note,progress|regex:(?:value|is|equals?|to)[\\s:]+(.+)",
-      "OI-savecontext::context_save.category": "regex:(?:category|type)[\\s:]+(task|decision|progress|note)",
-      "OI-savecontext::context_save.priority": "regex:(?:priority)[\\s:]+(high|normal|low)"
+      "OI-savecontext::context_save.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)|regex:^save\\s+(?:decision|task|note|progress|context)\\s+([A-Za-z0-9_-]+)\\s",
+      "OI-savecontext::context_save.value": "regex:^save\\s+decision\\s+(.+)|regex:^save\\s+note\\s+(.+)|regex:^save\\s+progress\\s+(.+)|regex:^save\\s+task\\s+(.+)|regex:^save\\s+context\\s+(.+)|regex:(?:value|is|equals?|to)[\\s:]+(.+)",
+      "OI-savecontext::context_save.category": "conditional:if_contains:save decision|then:default:decision|else:if_contains:save task|then:default:task|else:if_contains:save progress|then:default:progress|else:if_contains:save note|then:default:note|else:regex:(?:category|type)[\\s:]+(task|decision|progress|note)",
+      "OI-savecontext::context_save.priority": "regex:(?:priority)[\\s:]+(high|normal|low)|conditional:if_contains:high|then:default:high|else:if_contains:low|then:default:low|else:default:normal"
     },
     "context_get": {
-      "OI-savecontext::context_get.category": "regex:(?:category|type)[\\s:]+(task|decision|progress|note)",
-      "OI-savecontext::context_get.priority": "regex:(?:priority)[\\s:]+(high|normal|low)",
+      "OI-savecontext::context_get.category": "regex:(?:category|type)[\\s:]+(task|decision|progress|note)|conditional:if_contains:decision|then:default:decision|else:if_contains:task|then:default:task|else:if_contains:progress|then:default:progress|else:if_contains:note|then:default:note",
+      "OI-savecontext::context_get.priority": "regex:(?:priority)[\\s:]+(high|normal|low)|conditional:if_contains:high|then:default:high|else:if_contains:low|then:default:low|else:default:normal",
       "OI-savecontext::context_get.limit": "regex:(?:limit|max|results?)[\\s:]+(\\d+)"
     },
     "context_checkpoint": {
-      "OI-savecontext::context_checkpoint.name": "regex:(?:name|checkpoint)[\\s:]+([A-Za-z0-9\\s_-]+)",
-      "OI-savecontext::context_checkpoint.description": "regex:(?:description|desc)[\\s:]+(.+)",
-      "OI-savecontext::context_checkpoint.include_git": "regex:(?:include[\\s_-]?git|git)[\\s:]+(true|false|yes|no)"
+      "OI-savecontext::context_checkpoint.name": "remove:create,save,checkpoint|trim|regex:(?:name|checkpoint)[\\s:]+([A-Za-z0-9\\s_-]+)",
+      "OI-savecontext::context_checkpoint.description": "keyword:after_description|regex:(?:description|desc)[\\s:]+(.+)",
+      "OI-savecontext::context_checkpoint.include_git": "regex:(?:include[\\s_-]?git|git)[\\s:]+(true|false|yes|no)|conditional:if_contains:git|then:default:true|else:default:false"
     },
     "context_restore": {
       "OI-savecontext::context_restore.checkpoint_id": "regex:(?:checkpoint[\\s_-]?id|id)[\\s:]+([A-Za-z0-9_-]+)",
       "OI-savecontext::context_restore.checkpoint_name": "regex:(?:checkpoint[\\s_-]?name|name)[\\s:]+([A-Za-z0-9\\s_-]+)"
     },
+    "context_session_start": {
+      "OI-savecontext::context_session_start.name": "regex:(?:start|new)\\s+session\\s+(.+)|regex:^\\s*(.+?)\\s*$",
+      "OI-savecontext::context_session_start.description": "keyword:after_description"
+    },
     "context_task_create": {
-      "OI-savecontext::context_task_create.title": "remove:create,add,task|regex:(?:title|task|name)[\\s:]+(.+)",
-      "OI-savecontext::context_task_create.description": "regex:(?:description|desc)[\\s:]+(.+)"
+      "OI-savecontext::context_task_create.title": "remove:create,add,task|trim|regex:(?:title|task|name)[\\s:]+(.+)",
+      "OI-savecontext::context_task_create.description": "keyword:after_description|regex:(?:description|desc)[\\s:]+(.+)"
     },
     "context_task_complete": {
-      "OI-savecontext::context_task_complete.task_id": "regex:(?:task[\\s_-]?id|id)[\\s:]+([A-Za-z0-9_-]+)"
+      "OI-savecontext::context_task_complete.id": "regex:(?:task[\\s_-]?id|id)[\\s:]+([A-Za-z0-9_-]+)",
+      "OI-savecontext::context_task_complete.task_title": "remove:complete,mark,done,task|trim|regex:(?:title|task|name)[\\s:]+(.+)"
+    },
+    "context_task_update": {
+      "OI-savecontext::context_task_update.id": "regex:(?:task[\\s_-]?id|id)[\\s:]+([A-Za-z0-9_-]+)",
+      "OI-savecontext::context_task_update.task_title": "regex:(?:task[\\s_-]?title|title|current[\\s_-]?title)[\\s:]+(.+)",
+      "OI-savecontext::context_task_update.title": "regex:(?:new[\\s_-]?title|title)[\\s:]+(.+)",
+      "OI-savecontext::context_task_update.description": "regex:(?:description|desc)[\\s:]+(.+)",
+      "OI-savecontext::context_task_update.status": "regex:(?:status|state)[\\s:]+(todo|done|in_progress)|conditional:if_contains:done,complete,finished|then:default:done|else:if_contains:in progress,working|then:default:in_progress|else:default:todo"
     },
     "context_memory_save": {
-      "OI-savecontext::context_memory_save.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)",
-      "OI-savecontext::context_memory_save.value": "remove:save,memory|regex:(?:value|is|equals?|to)[\\s:]+(.+)",
-      "OI-savecontext::context_memory_save.category": "regex:(?:category|type)[\\s:]+(command|config|note)"
+      "OI-savecontext::context_memory_save.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)|regex:^save\\s+memory\\s+([A-Za-z0-9_-]+)",
+      "OI-savecontext::context_memory_save.value": "remove:save,memory|regex:(?:value|is|equals?|to)[\\s:]+(.+)|regex:^save\\s+memory\\s+[A-Za-z0-9_-]+\\s+(.+)",
+      "OI-savecontext::context_memory_save.category": "regex:(?:category|type)[\\s:]+(command|config|note)|conditional:if_contains:command|then:default:command|else:if_contains:config|then:default:config|else:default:note"
     },
     "context_memory_get": {
-      "OI-savecontext::context_memory_get.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)"
+      "OI-savecontext::context_memory_get.key": "regex:(?:key|name)[\\s:]+([A-Za-z0-9_-]+)|remove:get,memory|trim"
     }
   },
   "reminder_message": "SaveContext MCP server for persistent context management across AI coding sessions. Supports local (SQLite) and cloud modes. Use context_save to save decisions/tasks/notes, context_get to retrieve, context_checkpoint to create snapshots, and context_restore to continue previous work."

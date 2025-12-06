@@ -77,6 +77,29 @@ export function validateCreateSession(args: any): CreateSessionArgs {
 }
 
 /**
+ * Generate a key from a value by creating a slug from the first few words
+ */
+function generateKeyFromValue(value: string): string {
+  // Take first 50 characters, convert to lowercase, replace spaces/special chars with underscores
+  const words = value
+    .substring(0, 50)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .split(/\s+/)
+    .filter(w => w.length > 0)
+    .slice(0, 5); // Take first 5 words max
+  
+  if (words.length === 0) {
+    return 'context_item';
+  }
+  
+  const key = words.join('_');
+  // Ensure key is not too long and is valid
+  return key.substring(0, SESSION_NAME_MAX_LENGTH);
+}
+
+/**
  * Validate save context arguments
  */
 export function validateSaveContext(args: any): SaveContextArgs {
@@ -84,16 +107,7 @@ export function validateSaveContext(args: any): SaveContextArgs {
     throw new ValidationError('Invalid arguments: must be an object');
   }
 
-  const { key, value, category, priority, channel } = args;
-
-  // Key is required
-  if (!key || typeof key !== 'string' || key.trim().length === 0) {
-    throw new ValidationError('key is required and must be a non-empty string');
-  }
-
-  if (key.length > SESSION_NAME_MAX_LENGTH) {
-    throw new ValidationError(`key must be ${SESSION_NAME_MAX_LENGTH} characters or less`);
-  }
+  let { key, value, category, priority, channel } = args;
 
   // Value is required
   if (value === undefined || value === null) {
@@ -109,8 +123,18 @@ export function validateSaveContext(args: any): SaveContextArgs {
     throw new ValidationError('value must be 100,000 characters or less');
   }
 
+  // Auto-generate key from value if not provided
+  if (!key || typeof key !== 'string' || key.trim().length === 0) {
+    key = generateKeyFromValue(value);
+  }
+
+  if (key.length > SESSION_NAME_MAX_LENGTH) {
+    throw new ValidationError(`key must be ${SESSION_NAME_MAX_LENGTH} characters or less`);
+  }
+
   // Category is optional but must be valid
-  if (category !== undefined) {
+  // If category is empty string, treat as undefined (will default to 'note')
+  if (category !== undefined && category !== null && category !== '') {
     if (typeof category !== 'string') {
       throw new ValidationError('category must be a string');
     }
@@ -122,7 +146,8 @@ export function validateSaveContext(args: any): SaveContextArgs {
   }
 
   // Priority is optional but must be valid
-  if (priority !== undefined) {
+  // If priority is empty string, treat as undefined (will default to 'normal')
+  if (priority !== undefined && priority !== null && priority !== '') {
     if (typeof priority !== 'string') {
       throw new ValidationError('priority must be a string');
     }
@@ -166,7 +191,8 @@ export function validateGetContext(args: any): GetContextArgs {
     throw new ValidationError('key must be a string');
   }
 
-  if (category !== undefined) {
+  // Treat empty strings as undefined
+  if (category !== undefined && category !== null && category !== '') {
     if (typeof category !== 'string') {
       throw new ValidationError('category must be a string');
     }
@@ -177,7 +203,7 @@ export function validateGetContext(args: any): GetContextArgs {
     }
   }
 
-  if (priority !== undefined) {
+  if (priority !== undefined && priority !== null && priority !== '') {
     if (typeof priority !== 'string') {
       throw new ValidationError('priority must be a string');
     }
@@ -192,14 +218,37 @@ export function validateGetContext(args: any): GetContextArgs {
     throw new ValidationError('channel must be a string');
   }
 
-  if (limit !== undefined) {
-    if (typeof limit !== 'number' || limit < 1 || limit > CONTEXT_ITEMS_MAX_LIMIT) {
-      throw new ValidationError(`limit must be a number between 1 and ${CONTEXT_ITEMS_MAX_LIMIT}`);
+  // Convert string limits/offsets to numbers if needed
+  let limitNum: number | undefined = undefined;
+  if (limit !== undefined && limit !== null && limit !== '') {
+    if (typeof limit === 'string') {
+      limitNum = parseInt(limit, 10);
+      if (isNaN(limitNum)) {
+        throw new ValidationError(`limit must be a valid number, got: ${limit}`);
+      }
+    } else if (typeof limit === 'number') {
+      limitNum = limit;
+    } else {
+      throw new ValidationError(`limit must be a number, got: ${typeof limit}`);
+    }
+    if (limitNum < 1 || limitNum > CONTEXT_ITEMS_MAX_LIMIT) {
+      throw new ValidationError(`limit must be between 1 and ${CONTEXT_ITEMS_MAX_LIMIT}`);
     }
   }
 
-  if (offset !== undefined) {
-    if (typeof offset !== 'number' || offset < 0) {
+  let offsetNum: number | undefined = undefined;
+  if (offset !== undefined && offset !== null && offset !== '') {
+    if (typeof offset === 'string') {
+      offsetNum = parseInt(offset, 10);
+      if (isNaN(offsetNum)) {
+        throw new ValidationError(`offset must be a valid number, got: ${offset}`);
+      }
+    } else if (typeof offset === 'number') {
+      offsetNum = offset;
+    } else {
+      throw new ValidationError(`offset must be a number, got: ${typeof offset}`);
+    }
+    if (offsetNum < 0) {
       throw new ValidationError('offset must be a non-negative number');
     }
   }
@@ -209,8 +258,8 @@ export function validateGetContext(args: any): GetContextArgs {
     category: category as ItemCategory | undefined,
     priority: priority as ItemPriority | undefined,
     channel: channel?.trim(),
-    limit,
-    offset,
+    limit: limitNum,
+    offset: offsetNum,
   };
 }
 

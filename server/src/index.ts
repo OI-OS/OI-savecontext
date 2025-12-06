@@ -306,11 +306,32 @@ async function updateAgentActivity() {
 /**
  * Ensure we have an active session
  */
-function ensureSession(): string {
-  if (!currentSessionId) {
-    throw new SessionError('No active session. Use context_session_start first.');
+async function ensureSession(): Promise<string> {
+  // If we have an in-memory session, use it
+  if (currentSessionId) {
+    return currentSessionId;
   }
-  return currentSessionId;
+
+  // If no in-memory session, try to find and resume agent's current session from DB
+  try {
+    const branch = await getCurrentBranch();
+    const projectPath = normalizeProjectPath(getCurrentProjectPath());
+    const provider = getCurrentProvider();
+    const agentId = getAgentId(projectPath, branch || 'main', provider);
+
+    const agentSession = getDb().getCurrentSessionForAgent(agentId);
+
+    if (agentSession && agentSession.status === 'active') {
+      currentSessionId = agentSession.id;
+      await updateAgentActivity(); // Update activity for resumed session
+      return currentSessionId;
+    }
+  } catch (err) {
+    console.error('Failed to auto-resume session:', err);
+    // Fall through to throw error if auto-resume fails
+  }
+
+  throw new SessionError('No active session. Use context_session_start first.');
 }
 
 /**
@@ -466,7 +487,7 @@ async function handleSaveContext(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const validated = validateSaveContext(args);
 
     // Get session to use its default channel if not specified
@@ -516,7 +537,7 @@ async function handleGetContext(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const validated = validateGetContext(args);
 
     // If key is provided, get single item
@@ -570,7 +591,7 @@ async function handleDeleteContext(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
 
     if (!args?.key) {
       throw new ValidationError('key is required');
@@ -608,7 +629,7 @@ async function handleUpdateContext(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
 
     if (!args?.key) {
       throw new ValidationError('key is required');
@@ -990,7 +1011,7 @@ async function handleCreateCheckpoint(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const validated = validateCreateCheckpoint(args);
 
     let git_status: string | undefined;
@@ -1052,7 +1073,7 @@ async function handlePrepareCompaction() {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
 
     // Generate auto-checkpoint name
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
@@ -1201,7 +1222,7 @@ async function handleRestoreCheckpoint(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const validated = validateRestoreCheckpoint(args);
 
     // Verify checkpoint exists and name matches
@@ -1241,7 +1262,7 @@ async function handleTagContextItems(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const validated = validateTagContextItems(args);
 
     const updated = getDb().tagContextItems(sessionId, {
@@ -1279,7 +1300,7 @@ async function handleAddItemsToCheckpoint(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const validated = validateCheckpointItemManagement(args);
 
     // Verify checkpoint exists and name matches
@@ -1318,7 +1339,7 @@ async function handleRemoveItemsFromCheckpoint(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const validated = validateCheckpointItemManagement(args);
 
     // Verify checkpoint exists and name matches
@@ -1357,7 +1378,7 @@ async function handleSplitCheckpoint(args: any) {
     }
 
     // Local mode: use SQLite
-    ensureSession();
+    await ensureSession();
     const validated = validateCheckpointSplit(args);
 
     // Verify source checkpoint exists
@@ -1430,7 +1451,7 @@ async function handleDeleteCheckpoint(args: any) {
     }
 
     // Local mode: use SQLite
-    ensureSession();
+    await ensureSession();
     const validated = validateDeleteCheckpoint(args);
 
     // Verify checkpoint exists and name matches
@@ -1627,17 +1648,14 @@ async function handleSessionStatus() {
     }
 
     // Local mode: use SQLite
-    if (!currentSessionId) {
-      return success({ current_session_id: null }, 'No active session');
-    }
-
-    const session = db!.getSession(currentSessionId);
+    const sessionId = await ensureSession(); // Auto-resume session if needed
+    const session = db!.getSession(sessionId);
     if (!session) {
       throw new SessionError('Current session not found');
     }
 
-    const stats = getDb().getSessionStats(currentSessionId);
-    const checkpoints = getDb().listCheckpoints(currentSessionId);
+    const stats = getDb().getSessionStats(sessionId);
+    const checkpoints = getDb().listCheckpoints(sessionId);
 
     // Calculate session duration
     const endTime = session.ended_at || Date.now();
@@ -1651,7 +1669,7 @@ async function handleSessionStatus() {
       : null;
 
     const status: SessionStatus = {
-      current_session_id: currentSessionId,
+      current_session_id: sessionId,
       session_name: session.name,
       channel: session.channel,
       project_path: session.project_path,
@@ -1682,7 +1700,7 @@ async function handleSessionRename(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const { current_name, new_name } = args;
 
     if (!current_name || typeof current_name !== 'string') {
@@ -1772,7 +1790,7 @@ async function handleSessionEnd() {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const session = db!.getSession(sessionId);
 
     if (!session) {
@@ -1824,7 +1842,7 @@ async function handleSessionPause() {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
     const session = db!.getSession(sessionId);
 
     if (!session) {
@@ -2046,7 +2064,7 @@ async function handleSessionAddPath(args: any) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
 
     // Get project path (default to current directory if not provided)
     const projectPath = args?.project_path
@@ -2107,7 +2125,7 @@ async function handleSessionRemovePath(args: unknown) {
     }
 
     // Local mode: use SQLite
-    const sessionId = ensureSession();
+    const sessionId = await ensureSession();
 
     // Validate project_path is provided
     const typedArgs = args as { project_path?: string };
